@@ -5,6 +5,13 @@ import (
 )
 
 var (
+    ErrFailed = errors.New("failed")
+
+    ErrServerFault = errors.New("server fault")
+    ErrInvalidArgument = errors.New("invalid argument")
+    ErrUserExist = errors.New("user been exist")
+    ErrUserCreate = errors.New("user create failed")
+
     ErrInvalidPassword = errors.New("invalid password")
 
     // ErrInvalidCredential is returned when the auth token does not authenticate correctly.

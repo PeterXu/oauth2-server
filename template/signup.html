@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Signup</title>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <script src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="/css/strength.css">
+    <script src="/js/strength.js"></script>
+</head>
+
+<body>
+    <script>
+    $(document).ready(function ($) {
+        $("#id_password").strength();
+    });
+    </script>
+    <div class="container">
+        <h1>Signup</h1>
+        <form action="/signup" method="POST">
+            <div class="form-group">
+                <span style="width:80px;text-align:left;display:inline-block;">
+                    <label for="username">User Name</label>
+                </span>
+                <input type="text" name="username" placeholder="Your user name">
+                <button type="button" class="btn btn-default">Check</button>
+            </div>
+            <div class="form-group">
+                <span style="width:80px;text-align:left;display:inline-block;float:left;">
+                    <label for="password">Password</label>
+                </span>
+                <div style="float:left;">
+                    <input id="id_password" type="password" name="password" placeholder="Your password">
+                    <input type="password" name="passwordr" placeholder="Repeat your password">
+                </div>
+            </div>
+            <div style="clear:both;"></div>
+            <br>
+            <span style="width:80px;text-align:left;display:inline-block;"> </span>
+            <button type="submit" class="btn btn-success">Signup</button>
+        </form>
+    </div>
+</body>
+
+</html>

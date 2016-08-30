@@ -1,9 +1,10 @@
 package main
 
 import (
-    "os"
+    //"os"
     "log"
     "strconv"
+    "strings"
     "net/url"
     "net/http"
     "html/template"
@@ -18,6 +19,8 @@ import (
 
     "github.com/go-oauth2/mongo"
     "github.com/go-oauth2/redis"
+
+    "./util"
 )
 
 var (
@@ -26,6 +29,7 @@ var (
     gClientID string = "76dbb7ac-6da8-11e6-84c6-1b976b623e41"
     gSecret string = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgtt"
     gDomain string = "http://example.org:6379"
+    gUsers  *util.Users = nil
 )
 
 func init() {
@@ -79,6 +83,17 @@ func main() {
     }
     manager.MustTokenStorage(storage, err)
 
+    // init users DB
+    // dbconn:  
+    //    (a) oauth:oauth@/oauth; 
+    //    (b) oauth:oauth@tcp(127.0.0.1:3306)/oauth
+    dbtype := "mysql"
+    dbconn := "oauth:oauth@/oauth"
+    gUsers = util.NewUsers(dbtype, dbconn)
+    if gUsers == nil {
+        return
+    }
+
 
     // new default server
     srv := server.NewDefaultServer(manager)
@@ -127,35 +142,69 @@ func main() {
     var srvAddress string = ":6543"
     log.Println("Server is running at: ", srvAddress)
     log.Fatal(http.ListenAndServe(srvAddress, nil))
+    gUsers.Close()
 }
 
 
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
+        username := strings.TrimSpace(r.FormValue("username"))
+        password := strings.TrimSpace(r.FormValue("password"))
+        if len(username) < 6 || len(password) < 6 {
+            log.Printf("[SignupHandler] invalid username/password: %s/%s", username, password)
+            http.Error(w, "Invalid username or password", 400)
+            return
+        }
+
+        err := gUsers.CreateUser(username, password)
+        if err != nil {
+            log.Printf("[SignupHandler] fail to create username=%s, err=%s", username, err.Error())
+            http.Error(w, "Fail to create username: "+username, 400)
+            return
+        }
+        return
     }
-    outputHTML(w, r, "template/signup.html")
-    return
-}
-func SigninHandler(w http.ResponseWriter, r *http.Request) {
-    return
-}
-func SignoutHandler(w http.ResponseWriter, r *http.Request) {
+    HtmlHandler(w, "template/signup.html")
     return
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
+func SigninHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
+        /*
         us, err := gSessions.SessionStart(w, r)
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
+
+        gUsers.GetUserID()
         us.Set("UserID", "000000")
         w.Header().Set("Location", "/auth")
         w.WriteHeader(http.StatusFound)
+        */
+
+        username := strings.TrimSpace(r.FormValue("username"))
+        password := strings.TrimSpace(r.FormValue("password"))
+        if len(username) < 6 || len(password) < 6 {
+            log.Printf("[SignupHandler] invalid username/password: %s/%s", username, password)
+            http.Error(w, "Invalid username or password", 400)
+            return
+        }
+
+        err := gUsers.VerifyPassword(username, password)
+        if err != nil {
+            log.Printf("[SignupHandler] fail to verify username=%s, err=%s", username, err.Error())
+            http.Error(w, "Fail to verify username: " + username, 403)
+            return
+        }
         return
     }
     HtmlHandler(w, "template/signin.html")
+}
+
+func SignoutHandler(w http.ResponseWriter, r *http.Request) {
+    HtmlHandler(w, "template/signout.html")
+    return
 }
 
 func AuthHandler(w http.ResponseWriter, r *http.Request) {
@@ -180,17 +229,6 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
     HtmlHandler(w, "template/auth.html")
-}
-
-func outputHTML(w http.ResponseWriter, req *http.Request, filename string) {
-    file, err := os.Open(filename)
-    if err != nil {
-        http.Error(w, err.Error(), 500)
-        return
-    }
-    defer file.Close()
-    fi, _ := file.Stat()
-    http.ServeContent(w, req, file.Name(), fi.ModTime(), file)
 }
 
 func NotFoundHandler(w http.ResponseWriter, r *http.Request) {

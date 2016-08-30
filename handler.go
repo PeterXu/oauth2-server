@@ -2,7 +2,7 @@ package main
 
 import (
     "os"
-    //"log"
+    "log"
     "bufio"
     "net/http"
 
@@ -13,6 +13,7 @@ import (
 
 /// config in file(gClientId, gSecret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {
+    log.Println("[ClientInfoHandler] ..")
     clientID = gClientID
     clientSecret = gSecret
     if clientID == "" || clientSecret == "" {
@@ -23,6 +24,7 @@ func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err erro
 
 /// config in file
 func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed bool, err error) {
+    log.Println("[ClientAuthorizedHandler] ..")
     err = nil
     allowed = true
     return
@@ -30,38 +32,33 @@ func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed b
 
 /// config in file
 func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
+    log.Println("[ClientScopeHandler] ..")
     allowed = true
     return
 }
 
 func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-    us, err := gSessions.SessionStart(w, r)
-    uid := us.Get("UserID")
-    if uid == nil {
-        if r.Form == nil {
-            r.ParseForm()
-        }
-        us.Set("Form", r.Form)
-        w.Header().Set("Location", "/login")
-        w.WriteHeader(http.StatusFound)
-        return
-    }
-    userID = uid.(string)
-    us.Delete("UserID")
+    log.Println("[UserAuthorizationHandler] ..")
     return
 }
 
 func PasswordAuthorizationHandler(username, password string) (userID string, err error) {
-    htpasswd, err := CheckPassword("./passwd")
-    if err != nil {
-        err = util.ErrInvalidPassword
-        return
+    log.Println("[PasswordAuthorizationHandler] ..")
+
+    // htpasswd, err := CheckPassword("./passwd")
+    // err = htpasswd.AuthenticateUser(username, password)
+    err = gUsers.VerifyPassword(username, password)
+    if err == nil {
+        userID, err = gUsers.GetUserID(username)
     }
 
-    err = htpasswd.AuthenticateUser(username, password)
-    userID = "123456" + username
+    if err != nil {
+        log.Printf("[PasswordAuthorizationHandler] userID=%s, err=%s", userID, err)
+    }
+
     return
 }
+
 
 func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     file, err := os.Open(filename)

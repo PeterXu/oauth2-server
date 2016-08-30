@@ -2,65 +2,88 @@ package util
 
 
 import (
+    "fmt"
     "log"
-    "bytes"
-    //"crypto/md5"
-    "crypto/hmac"
-    "crypto/sha256"
+    "strconv"
+    "strings"
     "database/sql"
 
     "gopkg.in/oauth2.v3/errors"
     _ "github.com/go-sql-driver/mysql"
 )
 
-var (
-    gSaltKey []byte = []byte("h7FkjHcgWTxKqVtVqj9WhLcxgz3rw3zvrmtFfsdKcCKxnTKPdb99hJjnNgxN9std")
-    gDbEngine string = "mysql"
-    //gDbConn string = "oauth:oauth@tcp(127.0.0.1:3306)/oauth"
-    gDbConn string = "oauth:oauth@/oauth"
 
-    gDB *sql.DB = nil
-)
-
-type User struct {
-    uid string
-    username string
+type Users struct {
+    db *sql.DB
+    dbtype string
+    dbconn string
 }
 
-func init() {
-    db, err := sql.Open(gDbEngine, gDbConn)
-    if err != nil {
-        log.Println("fail to open db: %s - %s ", gDbConn, err.Error())
-        return
-    }
-    defer db.Close()
-
-    err = db.Ping()
-    if err != nil {
-        log.Println("fail to ping db: ", err.Error())
-        return
+func NewUsers(dbtype string, dbconn string) *Users {
+    users := &Users{
+        db: nil,
+        dbtype: dbtype,
+        dbconn: dbconn,
     }
 
-    gDB = db
+    db := initDB(dbtype, dbconn)
+    if db == nil {
+        return nil
+    }
+
+    users.db = db
+    return users
+}
+
+func (u *Users) GetUserID(username string) (uid string, err error){
+    stmt := "SELECT uid FROM users WHERE username = ?"
+    err = u.db.QueryRow(stmt, username).Scan(&uid)
+    if err != nil {
+        log.Printf("fail to get userid of (%s) - %s", username, err.Error())
+        return
+    }
+
     return
 }
 
-func GetUserID(uname string) (uid string, err error){
-    if gDB == nil {
-        log.Println("db is not opened: %s ", gDbConn)
+func (u *Users) CheckUser(username string) bool {
+    var uid string
+    stmt := "SELECT uid FROM users WHERE username=?"
+    err := u.db.QueryRow(stmt, username).Scan(&uid)
+    if err == sql.ErrNoRows {
+        log.Printf("[CheckUser] - no username=%s in db", username)
+        return false
+    }else if err != nil {
+        log.Fatal("[CheckUser] - db error=", err.Error())
+        return true
+    }
+
+    return true
+}
+
+func (u *Users) CreateUser(username, password string) (err error){
+    if u.CheckUser(username) {
+        err = ErrUserExist
         return
     }
 
-    stmt, err := gDB.Prepare("select uid from users where username = ?")
-    if err != nil {
-        log.Println("fail to prepare sql: ", err.Error())
+    cnt := kDefaultIter
+    salt, hash := hashPasswordNoSalt(password, cnt)
+    if len(salt) <= 0 || len(hash) <= 0 {
+        err = ErrFailed
         return
     }
-    defer stmt.Close()
 
-    err = stmt.QueryRow(uname).Scan(&uid)
+    salt_hash := fmt.Sprintf("self:sha256:%d$%s$%s", cnt, salt, hash)
+    stmt := "INSERT INTO users(uid, username, password) VALUES (uuid(), ?, ?)"
+    res, err := u.db.Exec(stmt, username, salt_hash)
     if err != nil {
-        log.Println("fail to query sql: ", err.Error())
+        return
+    }
+
+    num, err := res.RowsAffected()
+    if num != 1 || err != nil {
+        err = ErrUserCreate
         return
     }
 
@@ -68,28 +91,33 @@ func GetUserID(uname string) (uid string, err error){
 }
 
 // This password should be also hashed by md5 or sha in sender
-func VerifyPassword(username, password string) (err error){
-    if gDB == nil {
-        log.Println("db is not opened: %s ", gDbConn)
-        return
-    }
-
-    stmt, err := gDB.Prepare("select password from users where username = ?")
-    if err != nil {
-        log.Println("fail to prepare sql: ", err.Error())
-        return
-    }
-    defer stmt.Close()
-
-    var db_password string
-    err = stmt.QueryRow(username).Scan(&db_password)
+func (u *Users) VerifyPassword(username, password string) (err error){
+    var db_salt_hash string
+    stmt := "SELECT password FROM users WHERE username = ?"
+    err = u.db.QueryRow(stmt, username).Scan(&db_salt_hash)
     if err != nil {
         log.Println("fail to query sql: ", err.Error())
         return
     }
 
-    hash_password, _ := hashPassword(username, password)
-    if hash_password != db_password {
+    str := strings.Split(db_salt_hash, "$")
+    if len(str) != 3 {
+        err = ErrServerFault
+        log.Println("invalid password(salt+hash) from db: ", db_salt_hash)
+        return
+    }
+
+    db_cnt := 1
+    str2 := strings.Split(str[0], ":")
+    if len(str2) == 3 {
+        db_cnt, _ = strconv.Atoi(str2[2])
+    }
+
+    db_salt := str[1]
+    db_password := str[2]
+
+    hash := hashPasswordWithSalt(db_salt, password, db_cnt)
+    if hash != db_password {
         err = errors.ErrAccessDenied
         return
     }
@@ -97,19 +125,27 @@ func VerifyPassword(username, password string) (err error){
     return
 }
 
-func genSalt(message, key []byte) (salt []byte) {
-    mac := hmac.New(sha256.New, key)
-    mac.Write(message)
-    salt = mac.Sum(nil)[:8]
-    return
+func (u *Users) Close() {
+    if u.db != nil {
+        u.db.Close()
+    }
 }
 
-func hashPassword(username, password string) (hash, salt string) {
-    message := []byte(username)
-    salt = string(genSalt(message, gSaltKey))   // 8bytes
-    sha := sha256.Sum256([]byte(salt+password)) // 32bytes
-    hash = bytes.NewBuffer(sha[:]).String()
-    return
-}
 
+func initDB(engine, conn string) *sql.DB{
+    db, err := sql.Open(engine, conn)
+    if err != nil {
+        log.Println("fail to open db: %s - %s ", conn, err.Error())
+        return nil
+    }
+    //defer db.Close()
+
+    err = db.Ping()
+    if err != nil {
+        log.Println("fail to ping db: ", err.Error())
+        return nil
+    }
+
+    return db
+}
 
