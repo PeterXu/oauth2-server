@@ -39,6 +39,20 @@ func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
 
 func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
     log.Println("[UserAuthorizationHandler] ..")
+    us, err := gSessions.SessionStart(w, r)
+    uid := us.Get("UserID")
+    if uid == nil {
+        if r.Form == nil {
+            r.ParseForm()
+        }
+        us.Set("Form", r.Form)
+        w.Header().Set("Location", "/signin")
+        w.WriteHeader(http.StatusFound)
+        return
+    }
+
+    userID = uid.(string)
+    us.Delete("UserID")
     return
 }
 
@@ -47,13 +61,9 @@ func PasswordAuthorizationHandler(username, password string) (userID string, err
 
     // htpasswd, err := CheckPassword("./passwd")
     // err = htpasswd.AuthenticateUser(username, password)
-    err = gUsers.VerifyPassword(username, password)
-    if err == nil {
-        userID, err = gUsers.GetUserID(username)
-    }
-
+    userID, err = gUsers.VerifyPassword(username, password)
     if err != nil {
-        log.Printf("[PasswordAuthorizationHandler] userID=%s, err=%s", userID, err)
+        log.Printf("[PasswordAuthorizationHandler] userID=%s, err=%s", userID, err.Error())
     }
 
     return

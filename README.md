@@ -1,6 +1,8 @@
 
 The flow of /token? 
 ------------------
+callflow:
+    -> ClientInfoHandler -> PasswordAuthorizationHandler -> ClientAuthorizedHandler -> ClientScopeHandler
 /token? =>
     Server.HandleTokenRequest(..) => 
         => Server.ValidationTokenRequest(..)
@@ -31,10 +33,9 @@ The flow of /token?
                 => TokenInfo clientID/userID/redirectURI/scope
                 => return accessToken
 
-call flow:
-    ClientInfoHandler -> PasswordAuthorizationHandler -> ClientAuthorizedHandler -> ClientScopeHandler
 
 
+callflow: -> UserAuthorizationHandler
 /authorize? =>
     Server.HandleAuthorizeRequest(..) =>
         => Server.ValidationAuthorizeRequest(..)

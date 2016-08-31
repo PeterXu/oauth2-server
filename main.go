@@ -170,18 +170,11 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
-        /*
         us, err := gSessions.SessionStart(w, r)
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
-
-        gUsers.GetUserID()
-        us.Set("UserID", "000000")
-        w.Header().Set("Location", "/auth")
-        w.WriteHeader(http.StatusFound)
-        */
 
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
@@ -191,12 +184,16 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        err := gUsers.VerifyPassword(username, password)
+        uid, err := gUsers.VerifyPassword(username, password)
         if err != nil {
             log.Printf("[SignupHandler] fail to verify username=%s, err=%s", username, err.Error())
             http.Error(w, "Fail to verify username: " + username, 403)
             return
         }
+
+        us.Set("UserID", uid)
+        w.Header().Set("Location", "/auth")
+        w.WriteHeader(http.StatusFound)
         return
     }
     HtmlHandler(w, "template/signin.html")
@@ -213,11 +210,13 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
+
     if us.Get("UserID") == nil {
-        w.Header().Set("Location", "/login")
+        w.Header().Set("Location", "/signin")
         w.WriteHeader(http.StatusFound)
         return
     }
+
     if r.Method == "POST" {
         form := us.Get("Form").(url.Values)
         u := new(url.URL)

@@ -2,10 +2,10 @@ package util
 
 
 import (
-    "fmt"
+    //"fmt"
     "log"
-    "strconv"
-    "strings"
+    //"strconv"
+    //"strings"
     "database/sql"
 
     "gopkg.in/oauth2.v3/errors"
@@ -67,14 +67,11 @@ func (u *Users) CreateUser(username, password string) (err error){
         return
     }
 
-    cnt := kDefaultIter
-    salt, hash := hashPasswordNoSalt(password, cnt)
-    if len(salt) <= 0 || len(hash) <= 0 {
-        err = ErrFailed
+    salt_hash, err := genPasswordHash(password)
+    if err != nil {
         return
     }
 
-    salt_hash := fmt.Sprintf("self:sha256:%d$%s$%s", cnt, salt, hash)
     stmt := "INSERT INTO users(uid, username, password) VALUES (uuid(), ?, ?)"
     res, err := u.db.Exec(stmt, username, salt_hash)
     if err != nil {
@@ -91,35 +88,17 @@ func (u *Users) CreateUser(username, password string) (err error){
 }
 
 // This password should be also hashed by md5 or sha in sender
-func (u *Users) VerifyPassword(username, password string) (err error){
+func (u *Users) VerifyPassword(username, password string) (userID string, err error){
     var db_salt_hash string
-    stmt := "SELECT password FROM users WHERE username = ?"
-    err = u.db.QueryRow(stmt, username).Scan(&db_salt_hash)
+    stmt := "SELECT uid, password FROM users WHERE username = ?"
+    err = u.db.QueryRow(stmt, username).Scan(&userID, &db_salt_hash)
     if err != nil {
         log.Println("fail to query sql: ", err.Error())
         return
     }
 
-    str := strings.Split(db_salt_hash, "$")
-    if len(str) != 3 {
-        err = ErrServerFault
-        log.Println("invalid password(salt+hash) from db: ", db_salt_hash)
-        return
-    }
-
-    db_cnt := 1
-    str2 := strings.Split(str[0], ":")
-    if len(str2) == 3 {
-        db_cnt, _ = strconv.Atoi(str2[2])
-    }
-
-    db_salt := str[1]
-    db_password := str[2]
-
-    hash := hashPasswordWithSalt(db_salt, password, db_cnt)
-    if hash != db_password {
+    if !checkPasswordHash(db_salt_hash, password) {
         err = errors.ErrAccessDenied
-        return
     }
 
     return
