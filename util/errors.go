@@ -7,6 +7,7 @@ import (
 var (
     ErrFailed = errors.New("failed")
 
+    ErrHashPasswordFailure = errors.New("Fail to hash password")
     ErrClientNotFound = errors.New("Client Not Found")
 
     ErrServerFault = errors.New("server fault")

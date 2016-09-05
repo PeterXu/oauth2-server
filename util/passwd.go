@@ -100,8 +100,7 @@ func genPasswordHash(password string) (salthash string, err error) {
     result := hex.EncodeToString(rk)
 
     if len(result) <= 0 {
-        log.Fatal("[genPasswordHash] fail to hash password")
-        err = ErrFailed
+        err = ErrHashPasswordFailure
         return
     }
 

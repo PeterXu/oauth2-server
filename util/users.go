@@ -54,7 +54,7 @@ func (u *Users) CheckUser(username string) bool {
         log.Printf("[CheckUser] - no username=%s in db", username)
         return false
     }else if err != nil {
-        log.Fatal("[CheckUser] - db error=", err.Error())
+        log.Printf("[CheckUser] - db error=%s", err.Error())
         return true
     }
 

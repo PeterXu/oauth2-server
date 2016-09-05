@@ -7,11 +7,7 @@ import (
 )
 
 func NewConfig(fname string) (conf Config, err error) {
-    if _, err = toml.DecodeFile(fname, &conf); err != nil {
-        log.Fatal(err)
-        return
-    }
-    log.Printf("Title: %s", conf.Title)
+     _, err = toml.DecodeFile(fname, &conf)
     return
 }
 

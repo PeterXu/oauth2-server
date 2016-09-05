@@ -33,6 +33,7 @@ func main() {
     fname := "./server.toml"
     conf, err := NewConfig(fname)
     if err != nil {
+        log.Fatal("[main] config err: ", err)
         return
     }
     gConfig = conf
@@ -47,26 +48,22 @@ func main() {
     // default redis store
     storage, err := NewTokenStore(conf.Store)
     if err != nil {
-        log.Println("NewTokenStore Error:", err.Error())
+        log.Println("[main] NewTokenStore Error:", err.Error())
         return
     }
     manager.MustTokenStorage(storage, err)
 
     // init users DB
-    // dbconn:  
-    dbtype := "mysql"
-    dbconn := "oauth:oauth@/oauth"
-    gUsers = util.NewUsers(dbtype, dbconn)
+    gUsers = util.NewUsers(conf.Db.Engine, conf.Db.Connection)
     if gUsers == nil {
         return
     }
-
 
     // new default server
     srv := server.NewDefaultServer(manager)
     srv.SetAllowGetAccessRequest(true)
     srv.SetInternalErrorHandler(func(err error) {
-        log.Println("OAuth2 Error: ", err.Error())
+        log.Println("[main] OAuth2 Error: ", err.Error())
     })
 
     // set hook handler
@@ -109,7 +106,6 @@ func main() {
     srvAddress := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
     log.Println("Server is running at: ", srvAddress)
     log.Fatal(http.ListenAndServe(srvAddress, nil))
-    gUsers.Close()
 }
 
 
