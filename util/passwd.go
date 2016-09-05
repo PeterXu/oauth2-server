@@ -5,15 +5,21 @@ import (
     "fmt"
     "strings"
     "strconv"
+    "errors"
     //"bytes"
-    "encoding/base64"
+    //"encoding/base64"
     crand "crypto/rand"
     //"crypto/md5"
     //"crypto/hmac"
+    "crypto/sha1"
     "crypto/sha256"
+    "crypto/sha512"
+    "encoding/hex"
+
+    "golang.org/x/crypto/pbkdf2"
 )
 
-const kDefaultIter int = 10
+const kDefaultIter int = 1000
 
 
 func genRand(num int) []byte{
@@ -25,73 +31,82 @@ func genRand(num int) []byte{
     return b
 }
 
-func genBase64(data []byte) string {
-    return base64.StdEncoding.EncodeToString(data)
+func genSalt(num int) string {
+    return hex.EncodeToString(genRand(16))[0:num]
 }
 
-func genSalt() string {
-    return genBase64(genRand(16))[0:8] // 8bytes
-}
-
-func hashPasswordWithSalt(crypt, salt, password string, cnt int) string {
-    sha := sha256.Sum256([]byte(salt+password)) // 32bytes
-    for k := 1; k < cnt; k++ {
-        sha = sha256.Sum256(sha[:])
+func pbkdf2_hash(name string, password []byte, salt []byte, iterations int) []byte {
+    var rk []byte
+    switch name {
+    case "sha1":
+        rk = pbkdf2.Key(password, salt, iterations, 20, sha1.New)
+    case "sha256":
+        rk = pbkdf2.Key(password, salt, iterations, 20, sha256.New)
+    case "sha512":
+        rk = pbkdf2.Key(password, salt, iterations, 20, sha512.New)
     }
-    return genBase64(sha[:])
+    return rk
 }
 
-func hashPasswordNoSalt(password string, cnt int) (salt, hash string) {
-    salt = genSalt()
-    hash = hashPasswordWithSalt("sha256", salt, password, cnt)
-    //log.Printf("[hashPasswordNoSalt] salt=%s, hash=%s, pass=%s", salt, hash, password)
-    return
+func pbkdf2_validate(password string, hash string) (bool, error) {
+    parts := strings.Split(hash, "$")
+    if len(parts) != 3 {
+        log.Println("[pbkdf2_validate] invalid hash: ", hash)
+        return false, errors.New("hash is not a pbkdf2")
+    }
+
+    head := strings.Split(parts[0], ":")
+    if len(head) != 3 {
+        log.Println("[pbkdf2_validate] invalid parts: ", parts[0])
+        return false, errors.New("hash is not a pbkdf2")
+    }
+
+    if head[0] != "pbkdf2" {
+        log.Println("[pbkdf2_validate] invalid mark: ", head[0])
+        return false, errors.New("hash is not a pbkdf2")
+    }
+
+    //log.Printf("[pbkdf2_validate] hash: [%s][%s][%s]", head[1], parts[1], head[2])
+    method := head[1]
+    iterations, _ := strconv.Atoi(head[2])
+    salt := []byte(parts[1])
+    rk := pbkdf2_hash(method, []byte(password), salt, iterations)
+
+    result := hex.EncodeToString(rk)
+    log.Println("[pbkdf2_validate] result: ", result)
+    if result == parts[2] {
+        return true, nil
+    } else {
+        return false, nil
+    }
+    return false, nil
+}
+
+func checkPasswordHash(salthash string, password string) bool {
+    isok, err := pbkdf2_validate(password, salthash)
+    if !isok || err != nil {
+        log.Printf("[checkPasswordHash] err=%s, password=%s, salthash=%s", err, password, salthash)
+        return false
+    }
+
+    return true
 }
 
 func genPasswordHash(password string) (salthash string, err error) {
-    mark := "self"
-    crypt := "sha256"
-    cnt := kDefaultIter
+    method := "sha1"
+    iterations := kDefaultIter
+    salt := genSalt(8)
+    rk := pbkdf2_hash(method, []byte(password), []byte(salt), iterations)
+    result := hex.EncodeToString(rk)
 
-    salt, hash := hashPasswordNoSalt(password, cnt)
-    if len(salt) <= 0 || len(hash) <= 0 {
+    if len(result) <= 0 {
+        log.Fatal("[genPasswordHash] fail to hash password")
         err = ErrFailed
         return
     }
 
-    salthash = fmt.Sprintf("%s:%s:%d$%s$%s", mark, crypt, cnt, salt, hash)
+    salthash = fmt.Sprintf("pbkdf2:%s:%d$%s$%s", method, iterations, salt, result)
+    log.Printf("[genPasswordHash] password=%s, salthash=%s", password, salthash)
     return
 }
 
-func checkPasswordHash(salthash string, password string) bool {
-    str := strings.Split(salthash, "$")
-    if len(str) != 3 {
-        log.Println("invalid (salt+hash): ", salthash)
-        return false
-    }
-
-    mark := "self"
-    crypt := "sha256"
-    cnt := kDefaultIter
-    salt := str[1]
-    hash1 := str[2]
-
-    // update default mark/crypt/cnt
-    str2 := strings.Split(str[0], ":")
-    if len(str2) == 3 { // self(custom) and werkzeug.security
-        mark = str2[0]
-        crypt = str2[1]
-        cnt, _ = strconv.Atoi(str2[2])
-    }
-
-    hash2 := ""
-    if mark == "self" {
-        hash2 = hashPasswordWithSalt(crypt, salt, password, cnt)
-    }
-
-    if hash1 != hash2 {
-        log.Println("invalid password: ", password)
-        return false
-    }
-    return true
-}
