@@ -1,9 +1,7 @@
 package main
 
 import (
-    //"os"
     "log"
-    //"fmt"
     "strconv"
     "strings"
     "net/url"
@@ -11,13 +9,9 @@ import (
     "html/template"
 
     //"gopkg.in/oauth2.v3"
-    //"gopkg.in/oauth2.v3/errors"
     "gopkg.in/oauth2.v3/manage"
-    //"gopkg.in/oauth2.v3/models"
     "gopkg.in/oauth2.v3/server"
-    //"gopkg.in/oauth2.v3/store"
     "gopkg.in/session.v1"
-
 
     "./util"
 )
@@ -25,6 +19,7 @@ import (
 var (
     gSessions *session.Manager
     gUsers *util.Users
+    gConfig Config
 )
 
 func init() {
@@ -35,12 +30,14 @@ func init() {
 func main() {
     var err error
 
-    configFile := "./server.toml"
-    conf, err := NewConfig(configFile)
+    fname := "./server.toml"
+    conf, err := NewConfig(fname)
     if err != nil {
         return
     }
-    log.Println("config: ", conf)
+    gConfig = conf
+    log.Println("[main] config: ", conf)
+
 
     manager := manage.NewDefaultManager()
     // token memory store
@@ -57,8 +54,6 @@ func main() {
 
     // init users DB
     // dbconn:  
-    //    (a) oauth:oauth@/oauth; 
-    //    (b) oauth:oauth@tcp(127.0.0.1:3306)/oauth
     dbtype := "mysql"
     dbconn := "oauth:oauth@/oauth"
     gUsers = util.NewUsers(dbtype, dbconn)

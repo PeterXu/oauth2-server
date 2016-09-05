@@ -140,6 +140,9 @@ Location: https://client.example.com/cb?error=access_denied&state=xyz
 </code>
 
 Note: the client_id and redirect_uri's root should be the same as configure in oauth2-server.
+<code>
+http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
+</code>
 
 ### Access Token Request
 

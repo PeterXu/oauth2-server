@@ -7,6 +7,8 @@ import (
 var (
     ErrFailed = errors.New("failed")
 
+    ErrClientNotFound = errors.New("Client Not Found")
+
     ErrServerFault = errors.New("server fault")
     ErrInvalidArgument = errors.New("invalid argument")
     ErrUserExist = errors.New("user been exist")

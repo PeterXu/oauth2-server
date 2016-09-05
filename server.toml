@@ -1,0 +1,31 @@
+title = "oauth2"
+
+[listen]
+host = ""
+port = 6543
+
+[clients]
+ [clients.1]
+    id = "osso1"
+    secret = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgtt"
+    domain = "http://example.com"
+    grants = ["password", "authorization_code", "client_credentials", "refresh_token", "__implicit"]
+
+ [clients.2]
+    id = "osso2"
+    secret = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgss"
+    domain = "http://example.org"
+    grants = ["password", "authorization_code", "client_credentials", "refresh_token", "__implicit"]
+
+[store]
+engine = "redis"
+host = "127.0.0.1"
+port = 6379
+#db = "oauth2" # for mongo
+
+
+[db]
+engine = "mysql"
+# oauth:oauth@tcp(127.0.0.1:3306)/oauth
+connection = "oauth:oauth@/oauth"
+

@@ -4,6 +4,7 @@ import (
     "os"
     "log"
     "bufio"
+    "strings"
     "net/http"
 
     "gopkg.in/oauth2.v3"
@@ -11,11 +12,22 @@ import (
     "./util"
 )
 
-/// config in file(gClientId, gSecret)
+/// config in file(ClientId, Secret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {
-    log.Println("[ClientInfoHandler] ..")
-    //clientID = gClientID
-    //clientSecret = gSecret
+    log.Println("[ClientInfoHandler] req: ", r)
+    clientID = strings.TrimSpace(r.FormValue("client_id"))
+
+    if len(clientID) <= 1 {
+        clientID = kDefaultClientID
+        clientSecret = kDefaultClientSecret
+        //log.Println("[ClientInfoHandler] ", err, clientSecret)
+    }else {
+        cinfo, err := gConfig.GetClientByID(clientID)
+        if err == nil {
+            clientSecret = cinfo.Secret
+        }
+    }
+
     if clientID == "" || clientSecret == "" {
         err = errors.ErrInvalidClient
     }
@@ -24,9 +36,30 @@ func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err erro
 
 /// config in file
 func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed bool, err error) {
-    log.Println("[ClientAuthorizedHandler] ..")
-    err = nil
-    allowed = true
+    szGrant := grant.String()
+    log.Printf("[ClientAuthorizedHandler] clientID: %s, grant: %s", clientID, szGrant)
+
+    if len(szGrant) <= 0 {
+        return
+    }
+
+    if clientID == kDefaultClientID {
+        allowed = true
+        return
+    }
+
+    cinfo, err := gConfig.GetClientByID(clientID)
+    if err != nil {
+        log.Printf("[ClientAuthorizedHandler] no info for client: %s", clientID)
+        return
+    }
+
+    for _, val := range cinfo.Grants {
+        if val == szGrant {
+            allowed = true
+            break
+        }
+    }
     return
 }
 
