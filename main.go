@@ -3,33 +3,28 @@ package main
 import (
     //"os"
     "log"
+    //"fmt"
     "strconv"
     "strings"
     "net/url"
     "net/http"
     "html/template"
 
-    "gopkg.in/oauth2.v3"
+    //"gopkg.in/oauth2.v3"
     //"gopkg.in/oauth2.v3/errors"
     "gopkg.in/oauth2.v3/manage"
-    "gopkg.in/oauth2.v3/models"
+    //"gopkg.in/oauth2.v3/models"
     "gopkg.in/oauth2.v3/server"
-    "gopkg.in/oauth2.v3/store"
+    //"gopkg.in/oauth2.v3/store"
     "gopkg.in/session.v1"
 
-    "github.com/go-oauth2/mongo"
-    "github.com/go-oauth2/redis"
 
     "./util"
 )
 
 var (
     gSessions *session.Manager
-
-    gClientID string = "76dbb7ac-6da8-11e6-84c6-1b976b623e41"
-    gSecret string = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgtt"
-    gDomain string = "http://example.org:6379"
-    gUsers  *util.Users = nil
+    gUsers *util.Users
 )
 
 func init() {
@@ -37,46 +32,23 @@ func init() {
     go gSessions.GC()
 }
 
-
 func main() {
+    var err error
+
+    configFile := "./server.toml"
+    conf, err := NewConfig(configFile)
+    if err != nil {
+        return
+    }
+    log.Println("config: ", conf)
+
     manager := manage.NewDefaultManager()
     // token memory store
     //manager.MustTokenStorage(store.NewMemoryTokenStore())
-    // client test store
-    client := &models.Client{
-        ID:     gClientID,
-        Secret: gSecret,
-        Domain: gDomain,
-    }
-    manager.MapClientStorage(store.NewTestClientStore(client))
+    manager.MapClientStorage(NewMyClientStore(conf.Clients))
 
     // default redis store
-    var (
-        engine string = "redis"
-        host string = "127.0.0.1"
-        port int = 6379
-        err error = nil
-    )
-
-    var (
-        storage oauth2.TokenStore
-        address string = host + ":" + strconv.Itoa(port)
-    )
-    switch engine {
-    case "mongo":
-        storage, err = mongo.NewTokenStore(mongo.NewConfig(
-            "mongodb://" + address,
-            "oauth2",
-        ))
-    case "redis":
-        storage, err = redis.NewTokenStore(&redis.Config{
-            Addr: address,
-        })
-    default:
-        log.Println("Unsupported storage engine: ", engine)
-        return
-    }
-
+    storage, err := NewTokenStore(conf.Store)
     if err != nil {
         log.Println("NewTokenStore Error:", err.Error())
         return
@@ -139,7 +111,7 @@ func main() {
 
 
     // start http server
-    var srvAddress string = ":6543"
+    srvAddress := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
     log.Println("Server is running at: ", srvAddress)
     log.Fatal(http.ListenAndServe(srvAddress, nil))
     gUsers.Close()

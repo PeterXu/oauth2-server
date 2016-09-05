@@ -139,6 +139,7 @@ HTTP/1.1 302 Found
 Location: https://client.example.com/cb?error=access_denied&state=xyz
 </code>
 
+Note: the client_id and redirect_uri's root should be the same as configure in oauth2-server.
 
 ### Access Token Request
 

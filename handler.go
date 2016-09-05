@@ -14,8 +14,8 @@ import (
 /// config in file(gClientId, gSecret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {
     log.Println("[ClientInfoHandler] ..")
-    clientID = gClientID
-    clientSecret = gSecret
+    //clientID = gClientID
+    //clientSecret = gSecret
     if clientID == "" || clientSecret == "" {
         err = errors.ErrInvalidClient
     }
