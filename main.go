@@ -8,6 +8,7 @@ import (
     "net/url"
     "net/http"
     "html/template"
+    "encoding/json"
 
     "gopkg.in/oauth2.v3"
     "gopkg.in/oauth2.v3/manage"
@@ -204,14 +205,12 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
         if len(username) < 6 || len(password) < 6 {
-            log.Printf("[CodeHandler] invalid username/password: %s/%s", username, password)
             http.Error(w, "Invalid username or password", 400)
             return
         }
 
         uid, err := gUsers.VerifyPassword(username, password)
         if err != nil {
-            log.Printf("[CodeHandler] fail to verify username=%s, err=%s", username, err.Error())
             http.Error(w, "Fail to verify username: " + username, 403)
             return
         }
@@ -223,7 +222,6 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 
         cli, err := gServer.Manager.GetClient(clientID)
         if err != nil {
-            log.Printf("[CodeHandler] invalid client_id: ", clientID)
             http.Error(w, "Invalid client", 403)
             return
         }
@@ -236,7 +234,7 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
             ClientID:     clientID,
             State:        r.FormValue("state"),
             Scope:        r.FormValue("scope"),
-            AccessTokenExp: time.Second * 3600,
+            //AccessTokenExp: time.Second * 60,
         }
 
         tgr := &oauth2.TokenGenerateRequest{
@@ -244,16 +242,33 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
             UserID:         req.UserID,
             RedirectURI:    req.RedirectURI,
             Scope:          req.Scope,
-            AccessTokenExp: req.AccessTokenExp,
+            //AccessTokenExp: req.AccessTokenExp,
         }
 
         ti, err := gServer.Manager.GenerateAuthToken(req.ResponseType, tgr)
         if err != nil {
-            log.Printf("[CodeHandler] err=", err.Error())
             http.Error(w, "Fail to generate token: " + err.Error(), 403)
             return
         }
-        log.Printf("[CodeHandler] code=", ti.GetCode())
+
+        data := map[string]interface{}{
+            "code": ti.GetCode(),
+            "expires_in" : int64(ti.GetCodeExpiresIn()/time.Second),
+        }
+        if req.State != "" {
+            data["state"] = req.State
+        }
+        if req.Scope != "" {
+            data["scope"] = req.Scope
+        }
+
+        w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+        w.Header().Set("Cache-Control", "no-store")
+        w.Header().Set("Pragma", "no-cache")
+        status := http.StatusOK
+        w.WriteHeader(status)
+        err = json.NewEncoder(w).Encode(data)
+        //log.Printf("[CodeHandler] data=", data)
     }
 }
 

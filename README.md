@@ -328,8 +328,9 @@ curl -XGET "localhost:6543/token?grant_type=authorization_code&code=SplxlOBeZQQY
 0.
 curl -XGET "localhost:6543/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
 
+-1. for code
 curl -v -XPOST "localhost:6543/code?username=testuser4&password=testpass4"
-curl -v -XPOST "localhost:6543/signin?username=testuser4&password=testpass4"
+
 
 ```
 

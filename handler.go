@@ -72,9 +72,9 @@ func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
 }
 
 func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-    log.Println("[UserAuthorizationHandler] ..")
     us, err := gSessions.SessionStart(w, r)
     uid := us.Get("UserID")
+    log.Println("[UserAuthorizationHandler] UserID=", uid)
     if uid == nil {
         if r.Form == nil {
             r.ParseForm()
