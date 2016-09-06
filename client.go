@@ -45,7 +45,7 @@ func NewMyClientStore(clients map[string]clientInfo) oauth2.ClientStore {
             Domain: cli.Domain,
         }
     }
-    log.Printf("[NewMyClientStore] clients: ", data, len(data))
+    //log.Printf("[NewMyClientStore] clients: ", data, len(data))
     return &MyClientStore{
         data: data,
     }

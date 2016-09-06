@@ -2,13 +2,14 @@ package main
 
 import (
     "log"
+    "time"
     "strconv"
     "strings"
     "net/url"
     "net/http"
     "html/template"
 
-    //"gopkg.in/oauth2.v3"
+    "gopkg.in/oauth2.v3"
     "gopkg.in/oauth2.v3/manage"
     "gopkg.in/oauth2.v3/server"
     "gopkg.in/session.v1"
@@ -20,6 +21,7 @@ var (
     gSessions *session.Manager
     gUsers *util.Users
     gConfig Config
+    gServer *server.Server
 )
 
 func init() {
@@ -61,6 +63,8 @@ func main() {
 
     // new default server
     srv := server.NewDefaultServer(manager)
+    gServer = srv
+
     srv.SetAllowGetAccessRequest(true)
     srv.SetInternalErrorHandler(func(err error) {
         log.Println("[main] OAuth2 Error: ", err.Error())
@@ -72,6 +76,7 @@ func main() {
     srv.SetClientScopeHandler(ClientScopeHandler)
     srv.SetUserAuthorizationHandler(UserAuthorizationHandler)
     srv.SetPasswordAuthorizationHandler(PasswordAuthorizationHandler)
+    srv.SetAccessTokenExpHandler(AccessTokenExpHandler)
 
     // add static(css/img/js) handler
     http.Handle("/css/", http.FileServer(http.Dir("static")))
@@ -83,6 +88,7 @@ func main() {
     http.HandleFunc("/signin", SigninHandler)
     http.HandleFunc("/signout", SignoutHandler)
     http.HandleFunc("/auth", AuthHandler)
+    http.HandleFunc("/code", CodeHandler)
     http.HandleFunc("/", NotFoundHandler)
 
     // called by HandleAuthorizeRequest
@@ -191,6 +197,64 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
     HtmlHandler(w, "template/auth.html")
+}
+
+func CodeHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method == "POST" {
+        username := strings.TrimSpace(r.FormValue("username"))
+        password := strings.TrimSpace(r.FormValue("password"))
+        if len(username) < 6 || len(password) < 6 {
+            log.Printf("[CodeHandler] invalid username/password: %s/%s", username, password)
+            http.Error(w, "Invalid username or password", 400)
+            return
+        }
+
+        uid, err := gUsers.VerifyPassword(username, password)
+        if err != nil {
+            log.Printf("[CodeHandler] fail to verify username=%s, err=%s", username, err.Error())
+            http.Error(w, "Fail to verify username: " + username, 403)
+            return
+        }
+
+        clientID := strings.TrimSpace(r.FormValue("client_id"))
+        if len(clientID) <= 1 {
+            clientID = kDefaultClientID
+        }
+
+        cli, err := gServer.Manager.GetClient(clientID)
+        if err != nil {
+            log.Printf("[CodeHandler] invalid client_id: ", clientID)
+            http.Error(w, "Invalid client", 403)
+            return
+        }
+        redirectURI := cli.GetDomain()
+
+        req := &server.AuthorizeRequest{
+            UserID:       uid,
+            RedirectURI:  redirectURI,
+            ResponseType: "code",
+            ClientID:     clientID,
+            State:        r.FormValue("state"),
+            Scope:        r.FormValue("scope"),
+            AccessTokenExp: time.Second * 3600,
+        }
+
+        tgr := &oauth2.TokenGenerateRequest{
+            ClientID:       req.ClientID,
+            UserID:         req.UserID,
+            RedirectURI:    req.RedirectURI,
+            Scope:          req.Scope,
+            AccessTokenExp: req.AccessTokenExp,
+        }
+
+        ti, err := gServer.Manager.GenerateAuthToken(req.ResponseType, tgr)
+        if err != nil {
+            log.Printf("[CodeHandler] err=", err.Error())
+            http.Error(w, "Fail to generate token: " + err.Error(), 403)
+            return
+        }
+        log.Printf("[CodeHandler] code=", ti.GetCode())
+    }
 }
 
 func NotFoundHandler(w http.ResponseWriter, r *http.Request) {

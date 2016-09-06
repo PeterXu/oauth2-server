@@ -154,6 +154,7 @@ Location: https://client.example.com/cb?error=access_denied&state=xyz
 ```
 
 Note: the client_id and redirect_uri's root should be the same as configure in oauth2-server.
+here we have a default client_id if not in request-uri.
 ```
 http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
 ```
@@ -290,8 +291,8 @@ Pragma: no-cache
 ##### 5. Access Token Request - refresh_token grant
 >grant_type - required(refresh_token)  
 refresh_token - required  
-client_id -   
-client_secret -   
+client_id - required but now with default if no 
+client_secret - required but now with default if no
 
 ```
 POST /token HTTP/1.1
@@ -300,5 +301,35 @@ Content-Type: application/x-www-form-urlencoded
 
 grant_type=refresh_token&refresh_token=tGzv3JOkF0XG5Qx2TlKWIA
 &client_id=s6BhdRkqt3&client_secret=7Fjfp0ZBr1KtDRbnfVdmIw
+```
+
+
+test cases
+----------
+
+```
+
+5.
+curl -XPOST "localhost:6543/token?grant_type=password&username=testuser4&password=testpass4&scope=app"
+curl -XPOST "localhost:6543/token?grant_type=refresh_token&refresh_token=last_access_token"
+curl -XPOST "localhost:6543/token?grant_type=refresh_token&refresh_token=last_refresh_token"
+
+4.
+curl -XPOST "localhost:6543/token?grant_type=client_credentials&scope=app"
+
+3.
+curl -XPOST "localhost:6543/token?grant_type=password&username=testuser4&password=testpass4&scope=app"
+
+2.for browser
+
+1.
+curl -XGET "localhost:6543/token?grant_type=authorization_code&code=SplxlOBeZQQYbYS6WxSbIA&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
+
+0.
+curl -XGET "localhost:6543/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
+
+curl -v -XPOST "localhost:6543/code?username=testuser4&password=testpass4"
+curl -v -XPOST "localhost:6543/signin?username=testuser4&password=testpass4"
+
 ```
 

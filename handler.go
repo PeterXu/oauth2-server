@@ -3,6 +3,7 @@ package main
 import (
     "os"
     "log"
+    "time"
     "bufio"
     "strings"
     "net/http"
@@ -14,7 +15,7 @@ import (
 
 /// config in file(ClientId, Secret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {
-    log.Println("[ClientInfoHandler] req: ", r)
+    //log.Println("[ClientInfoHandler] req: ", r)
     clientID = strings.TrimSpace(r.FormValue("client_id"))
 
     if len(clientID) <= 1 {
@@ -111,6 +112,11 @@ func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     defer file.Close()
     rio := bufio.NewReader(file)
     htpasswd, err = util.NewHTPasswd(rio)
+    return
+}
+
+func AccessTokenExpHandler(w http.ResponseWriter, r *http.Request) (exp time.Duration, err error) {
+    exp = time.Second * 3600
     return
 }
 
