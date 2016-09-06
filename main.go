@@ -90,6 +90,7 @@ func main() {
     http.HandleFunc("/signout", SignoutHandler)
     http.HandleFunc("/auth", AuthHandler)
     http.HandleFunc("/code", CodeHandler)
+    http.HandleFunc("/check", CheckHandler)
     http.HandleFunc("/", NotFoundHandler)
 
     // called by HandleAuthorizeRequest
@@ -269,6 +270,11 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(status)
         err = json.NewEncoder(w).Encode(data)
         //log.Printf("[CodeHandler] data=", data)
+    }
+}
+
+func CheckHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method == "POST" {
     }
 }
 
