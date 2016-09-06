@@ -11,6 +11,7 @@ import (
     "encoding/json"
 
     "gopkg.in/oauth2.v3"
+    "gopkg.in/oauth2.v3/errors"
     "gopkg.in/oauth2.v3/manage"
     "gopkg.in/oauth2.v3/server"
     "gopkg.in/session.v1"
@@ -121,16 +122,14 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 6 || len(password) < 6 {
-            log.Printf("[SignupHandler] invalid username/password: %s/%s", username, password)
-            http.Error(w, "Invalid username or password", 400)
+        if len(username) < 4 || len(password) < 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
         err := gUsers.CreateUser(username, password)
         if err != nil {
-            log.Printf("[SignupHandler] fail to create username=%s, err=%s", username, err.Error())
-            http.Error(w, "Fail to create username: "+username, 400)
+            ResponseErrorWithJson(w, errors.ErrServerError)
             return
         }
         return
@@ -149,16 +148,14 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 6 || len(password) < 6 {
-            log.Printf("[SignupHandler] invalid username/password: %s/%s", username, password)
-            http.Error(w, "Invalid username or password", 400)
+        if len(username) < 4 || len(password) < 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
         uid, err := gUsers.VerifyPassword(username, password)
         if err != nil {
-            log.Printf("[SignupHandler] fail to verify username=%s, err=%s", username, err.Error())
-            http.Error(w, "Fail to verify username: " + username, 403)
+            ResponseErrorWithJson(w, errors.ErrAccessDenied)
             return
         }
 
@@ -205,14 +202,14 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 6 || len(password) < 6 {
-            http.Error(w, "Invalid username or password", 400)
+        if len(username) < 4 || len(password) < 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
         uid, err := gUsers.VerifyPassword(username, password)
         if err != nil {
-            http.Error(w, "Fail to verify username: " + username, 403)
+            ResponseErrorWithJson(w, errors.ErrAccessDenied)
             return
         }
 
@@ -223,7 +220,7 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 
         cli, err := gServer.Manager.GetClient(clientID)
         if err != nil {
-            http.Error(w, "Invalid client", 403)
+            ResponseErrorWithJson(w, errors.ErrInvalidClient)
             return
         }
         redirectURI := cli.GetDomain()
@@ -248,7 +245,7 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 
         ti, err := gServer.Manager.GenerateAuthToken(req.ResponseType, tgr)
         if err != nil {
-            http.Error(w, "Fail to generate token: " + err.Error(), 403)
+            ResponseErrorWithJson(w, errors.ErrServerError)
             return
         }
 
@@ -263,18 +260,21 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
             data["scope"] = req.Scope
         }
 
-        w.Header().Set("Content-Type", "application/json;charset=UTF-8")
-        w.Header().Set("Cache-Control", "no-store")
-        w.Header().Set("Pragma", "no-cache")
-        status := http.StatusOK
-        w.WriteHeader(status)
-        err = json.NewEncoder(w).Encode(data)
         //log.Printf("[CodeHandler] data=", data)
+        ResponseDataWithJson(w, data, http.StatusOK)
     }
 }
 
 func CheckHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
+        username := strings.TrimSpace(r.FormValue("username"))
+        access_token := strings.TrimSpace(r.FormValue("access_token"))
+        //scope := strings.TrimSpace(r.FormValue("scope"))
+
+        if len(username) <= 4 || len(access_token) <= 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
     }
 }
 
@@ -296,5 +296,24 @@ func HtmlHandler(w http.ResponseWriter, filename string) {
     }
 
     t.Execute(w, nil)
+}
+
+func ResponseDataWithJson(w http.ResponseWriter, data map[string]interface{}, status int) (err error) {
+    w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+    w.Header().Set("Cache-Control", "no-store")
+    w.Header().Set("Pragma", "no-cache")
+    w.WriteHeader(status)
+    err = json.NewEncoder(w).Encode(data)
+    return
+}
+
+func ResponseErrorWithJson(w http.ResponseWriter, respErr error) (err error) {
+    data, status := gServer.GetErrorData(respErr)
+    w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+    w.Header().Set("Cache-Control", "no-store")
+    w.Header().Set("Pragma", "no-cache")
+    w.WriteHeader(status)
+    err = json.NewEncoder(w).Encode(data)
+    return
 }
 
