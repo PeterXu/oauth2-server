@@ -37,7 +37,7 @@ func main() {
         return
     }
     gConfig = conf
-    log.Println("[main] config: ", conf)
+    //log.Println("[main] config: ", conf)
 
 
     manager := manage.NewDefaultManager()
