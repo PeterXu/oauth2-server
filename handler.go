@@ -18,12 +18,12 @@ func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err erro
     //log.Println("[ClientInfoHandler] req: ", r)
     clientID = strings.TrimSpace(r.FormValue("client_id"))
 
-    if len(clientID) <= 1 {
+    if len(clientID) <= 0 {
         clientID = kDefaultClientID
         clientSecret = kDefaultClientSecret
         //log.Println("[ClientInfoHandler] ", err, clientSecret)
     }else {
-        cinfo, err := gConfig.GetClientByID(clientID)
+        cinfo, err := gg.Config.GetClientByID(clientID)
         if err == nil {
             clientSecret = cinfo.Secret
         }
@@ -46,7 +46,7 @@ func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed b
         return
     }
 
-    cinfo, err := gConfig.GetClientByID(clientID)
+    cinfo, err := gg.Config.GetClientByID(clientID)
     if err != nil {
         log.Printf("[ClientAuthorizedHandler] no info for client: %s", clientID)
         return
@@ -76,7 +76,7 @@ func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
         return
     }
 
-    cinfo, err := gConfig.GetClientByID(clientID)
+    cinfo, err := gg.Config.GetClientByID(clientID)
     if err != nil {
         log.Printf("[ClientScopeHandler] no info for client: %s", clientID)
         return
@@ -98,7 +98,7 @@ func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
 }
 
 func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-    us, err := gSessions.SessionStart(w, r)
+    us, err := gg.Sessions.SessionStart(w, r)
     uid := us.Get("UserID")
     log.Println("[UserAuthorizationHandler] UserID=", uid)
     if uid == nil {
@@ -121,7 +121,7 @@ func PasswordAuthorizationHandler(username, password string) (userID string, err
 
     // htpasswd, err := CheckPassword("./passwd")
     // err = htpasswd.AuthenticateUser(username, password)
-    userID, err = gUsers.VerifyPassword(username, password)
+    userID, err = gg.Users.VerifyPassword(username, password)
     if err != nil {
         log.Printf("[PasswordAuthorizationHandler] userID=%s, err=%s", userID, err.Error())
     }

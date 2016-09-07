@@ -19,28 +19,30 @@ import (
     "./util"
 )
 
-var (
-    gSessions *session.Manager
-    gUsers *util.Users
-    gConfig Config
-    gServer *server.Server
-)
+type Global struct {
+    Sessions *session.Manager
+    Users *util.Users
+    Config Config
+    Server *server.Server
+}
+
+var gg Global
 
 func init() {
-    gSessions, _ = session.NewManager("memory", `{"cookieName":"gosessionid","gclifetime":3600}`)
-    go gSessions.GC()
+    gg.Sessions, _ = session.NewManager("memory", `{"cookieName":"gosessionid","gclifetime":3600}`)
+    go gg.Sessions.GC()
 }
 
 func main() {
     var err error
 
+    /// read & parse config 
     fname := "./server.toml"
     conf, err := NewConfig(fname)
     if err != nil {
         log.Fatal("[main] config err: ", err)
         return
     }
-    gConfig = conf
     //log.Println("[main] config: ", conf)
 
 
@@ -49,7 +51,7 @@ func main() {
     //manager.MustTokenStorage(store.NewMemoryTokenStore())
     manager.MapClientStorage(NewMyClientStore(conf.Clients))
 
-    // default redis store
+    /// default redis store
     storage, err := NewTokenStore(conf.Store)
     if err != nil {
         log.Println("[main] NewTokenStore Error:", err.Error())
@@ -57,22 +59,21 @@ func main() {
     }
     manager.MustTokenStorage(storage, err)
 
-    // init users DB
-    gUsers = util.NewUsers(conf.Db.Engine, conf.Db.Connection)
-    if gUsers == nil {
+    /// init users DB
+    users := util.NewUsers(conf.Db.Engine, conf.Db.Connection)
+    if users == nil {
+        log.Fatal("[main] fail to NewUsers")
         return
     }
 
-    // new default server
+    /// new default server
     srv := server.NewDefaultServer(manager)
-    gServer = srv
-
     srv.SetAllowGetAccessRequest(true)
     srv.SetInternalErrorHandler(func(err error) {
         log.Println("[main] OAuth2 Error: ", err.Error())
     })
 
-    // set hook handler
+    /// set hook handler
     srv.SetClientInfoHandler(ClientInfoHandler)
     srv.SetClientAuthorizedHandler(ClientAuthorizedHandler)
     srv.SetClientScopeHandler(ClientScopeHandler)
@@ -80,12 +81,12 @@ func main() {
     srv.SetPasswordAuthorizationHandler(PasswordAuthorizationHandler)
     srv.SetAccessTokenExpHandler(AccessTokenExpHandler)
 
-    // add static(css/img/js) handler
+    /// add static(css/img/js) handler
     http.Handle("/css/", http.FileServer(http.Dir("static")))
     http.Handle("/img/", http.FileServer(http.Dir("static")))
     http.Handle("/js/", http.FileServer(http.Dir("static")))
 
-    // add http handler
+    /// add http handler
     http.HandleFunc("/signup", SignupHandler)
     http.HandleFunc("/signin", SigninHandler)
     http.HandleFunc("/signout", SignoutHandler)
@@ -94,7 +95,7 @@ func main() {
     http.HandleFunc("/check", CheckHandler)
     http.HandleFunc("/", NotFoundHandler)
 
-    // called by HandleAuthorizeRequest
+    /// called by HandleAuthorizeRequest
     http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
         err := srv.HandleAuthorizeRequest(w, r)
         if err != nil {
@@ -102,7 +103,7 @@ func main() {
         }
     })
 
-    // callbed by HandleTokenRequest
+    /// called by HandleTokenRequest
     http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
         err := srv.HandleTokenRequest(w, r)
         if err != nil {
@@ -110,11 +111,15 @@ func main() {
         }
     })
 
+    /// save global variables
+    gg.Config = conf
+    gg.Users = users
+    gg.Server = srv
 
-    // start http server
-    srvAddress := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
-    log.Println("Server is running at: ", srvAddress)
-    log.Fatal(http.ListenAndServe(srvAddress, nil))
+    /// start http server
+    address := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
+    log.Println("Server is running at: ", address)
+    log.Fatal(http.ListenAndServe(address, nil))
 }
 
 
@@ -122,12 +127,12 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 4 || len(password) < 4 {
+        if len(username) < 0 || len(password) < 0 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        err := gUsers.CreateUser(username, password)
+        err := gg.Users.CreateUser(username, password)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrServerError)
             return
@@ -140,7 +145,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
-        us, err := gSessions.SessionStart(w, r)
+        us, err := gg.Sessions.SessionStart(w, r)
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
@@ -148,12 +153,12 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 4 || len(password) < 4 {
+        if len(username) < 0 || len(password) < 0 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        uid, err := gUsers.VerifyPassword(username, password)
+        uid, err := gg.Users.VerifyPassword(username, password)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrAccessDenied)
             return
@@ -168,12 +173,13 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SignoutHandler(w http.ResponseWriter, r *http.Request) {
+    // TODO: signout and disable current token
     HtmlHandler(w, "template/signout.html")
     return
 }
 
 func AuthHandler(w http.ResponseWriter, r *http.Request) {
-    us, err := gSessions.SessionStart(w, r)
+    us, err := gg.Sessions.SessionStart(w, r)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -202,23 +208,23 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 4 || len(password) < 4 {
+        if len(username) < 0 || len(password) < 0 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        uid, err := gUsers.VerifyPassword(username, password)
+        uid, err := gg.Users.VerifyPassword(username, password)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrAccessDenied)
             return
         }
 
         clientID := strings.TrimSpace(r.FormValue("client_id"))
-        if len(clientID) <= 1 {
+        if len(clientID) <= 0 {
             clientID = kDefaultClientID
         }
 
-        cli, err := gServer.Manager.GetClient(clientID)
+        cli, err := gg.Server.Manager.GetClient(clientID)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrInvalidClient)
             return
@@ -243,7 +249,7 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
             //AccessTokenExp: req.AccessTokenExp,
         }
 
-        ti, err := gServer.Manager.GenerateAuthToken(req.ResponseType, tgr)
+        ti, err := gg.Server.Manager.GenerateAuthToken(req.ResponseType, tgr)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrServerError)
             return
@@ -268,21 +274,37 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 func CheckHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
-        access_token := strings.TrimSpace(r.FormValue("access_token"))
         scope := strings.TrimSpace(r.FormValue("scope"))
-
-        if len(username) <= 4 || len(access_token) <= 4 {
+        if len(username) <= 0 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        uid, err := gUsers.GetUserID(username)
-        if len(uid) <= 4 {
+        access_token := strings.TrimSpace(r.FormValue("access_token"))
+        refresh_token := strings.TrimSpace(r.FormValue("refresh_token"))
+        if len(access_token) <= 0 && len(refresh_token) <= 0 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        ti, err := gServer.Manager.LoadAccessToken(access_token)
+        if len(access_token) > 0 && len(refresh_token) > 0 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        uid, err := gg.Users.GetUserID(username)
+        if len(uid) <= 0 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        var ti oauth2.TokenInfo
+        if len(access_token) > 0 {
+            ti, err = gg.Server.Manager.LoadAccessToken(access_token)
+        } else {
+            ti, err = gg.Server.Manager.LoadRefreshToken(refresh_token)
+        }
+
         if err != nil {
             ResponseErrorWithJson(w, err)
             return
@@ -307,8 +329,8 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 func HtmlHandler(w http.ResponseWriter, filename string) {
     t, err := template.ParseFiles(filename)
     if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), 500)
+        log.Printf("[HtmlHandler] error: ", err.Error())
+        http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
 
@@ -325,7 +347,7 @@ func ResponseDataWithJson(w http.ResponseWriter, data map[string]interface{}, st
 }
 
 func ResponseErrorWithJson(w http.ResponseWriter, respErr error) (err error) {
-    data, status := gServer.GetErrorData(respErr)
+    data, status := gg.Server.GetErrorData(respErr)
     w.Header().Set("Content-Type", "application/json;charset=UTF-8")
     w.Header().Set("Cache-Control", "no-store")
     w.Header().Set("Pragma", "no-cache")

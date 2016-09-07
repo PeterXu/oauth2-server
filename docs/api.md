@@ -36,7 +36,7 @@ REST API
     Method:
         POST
     Params:
-        access_token
+        access_token|refresh_token
             Required. Value of the token to be checked
         username
             Required. The resource owner username, encoded as UTF-8.

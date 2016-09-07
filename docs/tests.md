@@ -215,6 +215,9 @@ curl -XGET "localhost:6543/authorize?response_type=code&client_id=s6BhdRkqt3&sta
 -1. for code
 curl -v -XPOST "localhost:6543/code?username=testuser4&password=testpass4"
 
+-2. for token
+curl -v -XPOST "localhost:6543/check?username=testuser4&access_token=...&scope"
+
 
 ```
 
