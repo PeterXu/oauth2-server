@@ -9,13 +9,15 @@ port = 6543
     id = "osso1"
     secret = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgtt"
     domain = "http://example.com"
-    grants = ["password", "authorization_code", "client_credentials", "refresh_token", "__implicit"]
+    grants = ["password", "authorization_code", "client_credentials", "refresh_token"]
+    scopes = ["app"]
 
  [clients.2]
     id = "osso2"
     secret = "R7jjT7pwK3dhfjzrqhzRTmVXPJpmzwxqWFHg74bNgVdjnxg4d4FXCFxssFvTTgss"
     domain = "http://example.org"
-    grants = ["password", "authorization_code", "client_credentials", "refresh_token", "__implicit"]
+    grants = ["password", "authorization_code", "client_credentials", "refresh_token"]
+    scopes = ["app"]
 
 [store]
 engine = "redis"

@@ -269,9 +269,26 @@ func CheckHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         access_token := strings.TrimSpace(r.FormValue("access_token"))
-        //scope := strings.TrimSpace(r.FormValue("scope"))
+        scope := strings.TrimSpace(r.FormValue("scope"))
 
         if len(username) <= 4 || len(access_token) <= 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        uid, err := gUsers.GetUserID(username)
+        if len(uid) <= 4 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        ti, err := gServer.Manager.LoadAccessToken(access_token)
+        if err != nil {
+            ResponseErrorWithJson(w, err)
+            return
+        }
+
+        if uid != ti.GetUserID() || scope != ti.GetScope() {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }

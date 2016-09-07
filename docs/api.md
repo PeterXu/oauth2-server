@@ -30,7 +30,7 @@ REST API
 ```
 
 
-### /checktoken
+### /check
 
 ```
     Method:

@@ -73,7 +73,7 @@ func pbkdf2_validate(password string, hash string) (bool, error) {
     rk := pbkdf2_hash(method, []byte(password), salt, iterations)
 
     result := hex.EncodeToString(rk)
-    log.Println("[pbkdf2_validate] result: ", result)
+    //log.Println("[pbkdf2_validate] result: ", result)
     if result == parts[2] {
         return true, nil
     } else {

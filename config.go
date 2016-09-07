@@ -1,7 +1,7 @@
 package main
 
 import (
-    "log"
+    //"log"
     "github.com/BurntSushi/toml"
     "./util"
 )
@@ -21,15 +21,15 @@ type Config struct {
 }
 
 func (c *Config)GetClientByID(id string) (cinfo clientInfo, err error) {
-    err = util.ErrClientNotFound
-    log.Printf("clients: ", c.Clients)
+    //log.Printf("clients: ", c.Clients)
     for _, cli := range(c.Clients) {
         if cli.Id == id {
             cinfo = cli
-            err = nil
             return
         }
     }
+
+    err = util.ErrClientNotFound
     return
 }
 
@@ -43,6 +43,7 @@ type clientInfo struct {
     Secret string
     Domain string
     Grants []string  //> grant types
+    Scopes []string  //> self-defined scopes
 }
 
 type storeInfo struct {

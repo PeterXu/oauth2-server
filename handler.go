@@ -40,11 +40,8 @@ func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed b
     szGrant := grant.String()
     log.Printf("[ClientAuthorizedHandler] clientID: %s, grant: %s", clientID, szGrant)
 
-    if len(szGrant) <= 0 {
-        return
-    }
-
-    if clientID == kDefaultClientID {
+    // default implicit allowed, or default client allowed
+    if len(szGrant) <= 0 || clientID == kDefaultClientID {
         allowed = true
         return
     }
@@ -52,6 +49,11 @@ func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed b
     cinfo, err := gConfig.GetClientByID(clientID)
     if err != nil {
         log.Printf("[ClientAuthorizedHandler] no info for client: %s", clientID)
+        return
+    }
+
+    if len(cinfo.Grants) <= 0 {
+        allowed = true
         return
     }
 
@@ -66,8 +68,32 @@ func ClientAuthorizedHandler(clientID string, grant oauth2.GrantType) (allowed b
 
 /// config in file
 func ClientScopeHandler(clientID, scope string) (allowed bool, err error) {
-    log.Println("[ClientScopeHandler] ..")
-    allowed = true
+    log.Printf("[ClientScopeHandler] clientID=%s, scope=%s", clientID, scope)
+
+    // default allowed, or default client allowed
+    if len(scope) <= 0 || clientID == kDefaultClientID {
+        allowed = true
+        return
+    }
+
+    cinfo, err := gConfig.GetClientByID(clientID)
+    if err != nil {
+        log.Printf("[ClientScopeHandler] no info for client: %s", clientID)
+        return
+    }
+
+    if len(cinfo.Scopes) <= 0 {
+        allowed = true
+        return
+    }
+
+    for _, val := range cinfo.Scopes {
+        if val == scope {
+            allowed = true
+            break
+        }
+    }
+
     return
 }
 
