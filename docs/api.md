@@ -48,3 +48,15 @@ REST API
         If successful: HTTP/1.1 200 OK
 ```
 
+Web Browser
+===========
+
+authorize
+---------
+"http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
+
+
+signup
+------
+http://localhost:6543/signup
+

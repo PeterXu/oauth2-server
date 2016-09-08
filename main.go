@@ -89,7 +89,7 @@ func main() {
     /// add http handler
     http.HandleFunc("/signup", SignupHandler)
     http.HandleFunc("/signin", SigninHandler)
-    http.HandleFunc("/signout", SignoutHandler)
+    //http.HandleFunc("/signout", SignoutHandler)
     http.HandleFunc("/auth", AuthHandler)
     http.HandleFunc("/code", CodeHandler)
     http.HandleFunc("/check", CheckHandler)
