@@ -3,7 +3,7 @@ package main
 import (
     "log"
     "time"
-    //"flag"
+    "flag"
     "strconv"
     "strings"
     "net/url"
@@ -38,7 +38,10 @@ func main() {
     var err error
 
     /// read & parse config 
-    fname := "./server.toml"
+    var fname string
+    flag.StringVar(&fname, "c", "server.toml", "server config file")
+    flag.Parse()
+
     conf, err := NewConfig(fname)
     if err != nil {
         log.Fatal("[main] config err: ", err)
