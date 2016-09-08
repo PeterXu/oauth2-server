@@ -61,6 +61,34 @@ func (u *Users) CheckUser(username string) bool {
     return true
 }
 
+// This password should be also hashed by md5 or sha in sender
+func (u *Users) UpdatePassword(username, password string) (err error){
+    if !u.CheckUser(username) {
+        err = ErrUserNotExist
+        return
+    }
+
+    salt_hash, err := genPasswordHash(password)
+    if err != nil {
+        return
+    }
+
+    stmt := "UPDATE users set password=? where username=?"
+    res, err := u.db.Exec(stmt, salt_hash, username)
+    if err != nil {
+        return
+    }
+
+    num, err := res.RowsAffected()
+    if num != 1 || err != nil {
+        err = ErrUpdatePassword
+        return
+    }
+
+    return
+}
+
+
 func (u *Users) CreateUser(username, password string) (err error){
     if u.CheckUser(username) {
         err = ErrUserExist

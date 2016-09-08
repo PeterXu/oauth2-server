@@ -2,7 +2,6 @@ REST API
 ========
 
 ### /token
-
 ```
     Method:
         POST
@@ -31,7 +30,6 @@ REST API
 
 
 ### /check
-
 ```
     Method:
         POST
@@ -48,15 +46,53 @@ REST API
         If successful: HTTP/1.1 200 OK
 ```
 
+### /signup
+```
+    Method:
+        POST
+    Params:
+        username
+            Required. The resource owner username, encoded as UTF-8.
+        password1
+            Required. The username's password
+        password2
+            Required. The repeated password
+    Content-Type:
+        application/x-www-form-urlencoded
+    Response:
+        If successful: HTTP/1.1 200 OK
+```
+
+### /reset
+```
+    Method:
+        POST
+    Params:
+        username
+            Required. The resource owner username, encoded as UTF-8.
+        password
+            Required. The password for owner username
+        password1
+            Required. The new password
+        password2
+            Required. The repeated new password
+    Content-Type:
+        application/x-www-form-urlencoded
+    Response:
+        If successful: HTTP/1.1 200 OK
+```
+
+
 Web Browser
 ===========
 
-authorize
----------
+```
 "http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
 
+http://localhost:6543/signin
 
-signup
-------
 http://localhost:6543/signup
+
+http://localhost:6543/reset
+```
 

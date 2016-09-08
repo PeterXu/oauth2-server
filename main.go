@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "time"
+    //"flag"
     "strconv"
     "strings"
     "net/url"
@@ -87,6 +88,7 @@ func main() {
     http.Handle("/js/", http.FileServer(http.Dir("static")))
 
     /// add http handler
+    http.HandleFunc("/reset", ResetHandler)
     http.HandleFunc("/signup", SignupHandler)
     http.HandleFunc("/signin", SigninHandler)
     //http.HandleFunc("/signout", SignoutHandler)
@@ -123,16 +125,56 @@ func main() {
 }
 
 
-func SignupHandler(w http.ResponseWriter, r *http.Request) {
+func ResetHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 0 || len(password) < 0 {
+        if len(username) < 0 || len(password) < 6 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
-        err := gg.Users.CreateUser(username, password)
+        password1 := strings.TrimSpace(r.FormValue("password1"))
+        password2 := strings.TrimSpace(r.FormValue("password2"))
+        if len(password1) < 6 || password1 != password2 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        _, err := gg.Users.VerifyPassword(username, password)
+        if err != nil {
+            ResponseErrorWithJson(w, errors.ErrAccessDenied)
+            return
+        }
+
+        err = gg.Users.UpdatePassword(username, password1)
+        if err != nil {
+            ResponseErrorWithJson(w, errors.ErrServerError)
+            return
+        }
+
+        return
+    }
+
+    HtmlHandler(w, "template/reset.html")
+}
+
+func SignupHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method == "POST" {
+        username := strings.TrimSpace(r.FormValue("username"))
+        if len(username) < 0 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        password1 := strings.TrimSpace(r.FormValue("password1"))
+        password2 := strings.TrimSpace(r.FormValue("password2"))
+        if len(password1) < 6 || password1 != password2 {
+            ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+            return
+        }
+
+        err := gg.Users.CreateUser(username, password1)
         if err != nil {
             ResponseErrorWithJson(w, errors.ErrServerError)
             return
@@ -140,7 +182,6 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
     HtmlHandler(w, "template/signup.html")
-    return
 }
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +216,6 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 func SignoutHandler(w http.ResponseWriter, r *http.Request) {
     // TODO: signout and disable current token
     HtmlHandler(w, "template/signout.html")
-    return
 }
 
 func AuthHandler(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +232,11 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     if r.Method == "POST" {
+        if us.Get("Form") == nil {
+            http.Error(w, util.ErrInvalidRequestArgs.Error(), http.StatusBadRequest)
+            return
+        }
+
         form := us.Get("Form").(url.Values)
         u := new(url.URL)
         u.Path = "/authorize"
