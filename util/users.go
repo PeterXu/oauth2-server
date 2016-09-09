@@ -20,29 +20,24 @@ type Users struct {
 }
 
 func NewUsers(dbtype string, dbconn string) *Users {
-    users := &Users{
-        db: nil,
-        dbtype: dbtype,
-        dbconn: dbconn,
-    }
-
     db := initDB(dbtype, dbconn)
     if db == nil {
         return nil
     }
 
-    users.db = db
-    return users
+    return &Users{
+        db: db,
+        dbtype: dbtype,
+        dbconn: dbconn,
+    }
 }
 
 func (u *Users) GetUserID(username string) (uid string, err error){
     stmt := "SELECT uid FROM users WHERE username = ?"
-    err = u.db.QueryRow(stmt, username).Scan(&uid)
-    if err != nil {
+    if err = u.db.QueryRow(stmt, username).Scan(&uid); err != nil {
         log.Printf("fail to get userid of (%s) - %s", username, err.Error())
         return
     }
-
     return
 }
 
@@ -135,11 +130,12 @@ func (u *Users) VerifyPassword(username, password string) (userID string, err er
 func (u *Users) Close() {
     if u.db != nil {
         u.db.Close()
+        u.db = nil
     }
 }
 
 
-func initDB(engine, conn string) *sql.DB{
+func initDB(engine, conn string) *sql.DB {
     db, err := sql.Open(engine, conn)
     if err != nil {
         log.Println("fail to open db: %s - %s ", conn, err.Error())
@@ -147,8 +143,7 @@ func initDB(engine, conn string) *sql.DB{
     }
     //defer db.Close()
 
-    err = db.Ping()
-    if err != nil {
+    if err = db.Ping(); err != nil {
         log.Println("fail to ping db: ", err.Error())
         return nil
     }

@@ -39,7 +39,7 @@ func main() {
 
     /// read & parse config 
     var fname string
-    flag.StringVar(&fname, "c", "server.toml", "server config file")
+    flag.StringVar(&fname, "c", kDefaultConfig, "server config file")
     flag.Parse()
 
     conf, err := NewConfig(fname)
@@ -77,7 +77,7 @@ func main() {
         log.Println("[main] OAuth2 Error: ", err.Error())
     })
 
-    /// set hook handler
+    /// set internel hook handler
     srv.SetClientInfoHandler(ClientInfoHandler)
     srv.SetClientAuthorizedHandler(ClientAuthorizedHandler)
     srv.SetClientScopeHandler(ClientScopeHandler)
@@ -129,17 +129,17 @@ func main() {
 
 
 func ResetHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 0 || len(password) < 6 {
+        if len(username) < kMinUsernameLength || len(password) < kMinPasswordLength {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
         password1 := strings.TrimSpace(r.FormValue("password1"))
         password2 := strings.TrimSpace(r.FormValue("password2"))
-        if len(password1) < 6 || password1 != password2 {
+        if len(password1) < kMinPasswordLength || password1 != password2 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
@@ -163,16 +163,16 @@ func ResetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         username := strings.TrimSpace(r.FormValue("username"))
-        if len(username) < 0 {
+        if len(username) < kMinUsernameLength {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
 
         password1 := strings.TrimSpace(r.FormValue("password1"))
         password2 := strings.TrimSpace(r.FormValue("password2"))
-        if len(password1) < 6 || password1 != password2 {
+        if len(password1) < kMinPasswordLength || password1 != password2 {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
@@ -188,7 +188,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         us, err := gg.Sessions.SessionStart(w, r)
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -197,7 +197,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 0 || len(password) < 0 {
+        if len(username) < kMinUsernameLength || len(password) < kMinPasswordLength {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
@@ -234,7 +234,7 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         if us.Get("Form") == nil {
             http.Error(w, util.ErrInvalidRequestArgs.Error(), http.StatusBadRequest)
             return
@@ -253,10 +253,10 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CodeHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         username := strings.TrimSpace(r.FormValue("username"))
         password := strings.TrimSpace(r.FormValue("password"))
-        if len(username) < 0 || len(password) < 0 {
+        if len(username) < kMinUsernameLength || len(password) < kMinPasswordLength {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }
@@ -320,10 +320,10 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CheckHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method == "POST" {
+    if r.Method == http.MethodPost {
         username := strings.TrimSpace(r.FormValue("username"))
         scope := strings.TrimSpace(r.FormValue("scope"))
-        if len(username) <= 0 {
+        if len(username) < kMinUsernameLength {
             ResponseErrorWithJson(w, errors.ErrInvalidRequest)
             return
         }

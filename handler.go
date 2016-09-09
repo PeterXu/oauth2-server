@@ -10,6 +10,7 @@ import (
 
     "gopkg.in/oauth2.v3"
     "gopkg.in/oauth2.v3/errors"
+
     "./util"
 )
 
@@ -129,7 +130,14 @@ func PasswordAuthorizationHandler(username, password string) (userID string, err
     return
 }
 
+func AccessTokenExpHandler(w http.ResponseWriter, r *http.Request) (exp time.Duration, err error) {
+    exp = time.Second * 3600
+    log.Println("[AccessTokenExpHandler] exp=", exp)
+    return
+}
 
+
+/// for htpasswd bcrypt
 func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     file, err := os.Open(filename)
     if err != nil{
@@ -141,8 +149,4 @@ func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     return
 }
 
-func AccessTokenExpHandler(w http.ResponseWriter, r *http.Request) (exp time.Duration, err error) {
-    exp = time.Second * 3600
-    return
-}
 

@@ -76,8 +76,6 @@ func pbkdf2_validate(password string, hash string) (bool, error) {
     //log.Println("[pbkdf2_validate] result: ", result)
     if result == parts[2] {
         return true, nil
-    } else {
-        return false, nil
     }
     return false, nil
 }
