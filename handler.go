@@ -102,6 +102,7 @@ func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID st
     us, err := gg.Sessions.SessionStart(w, r)
     uid := us.Get("UserID")
     log.Println("[UserAuthorizationHandler] UserID=", uid)
+
     if uid == nil {
         if r.Form == nil {
             r.ParseForm()
@@ -118,7 +119,7 @@ func UserAuthorizationHandler(w http.ResponseWriter, r *http.Request) (userID st
 }
 
 func PasswordAuthorizationHandler(username, password string) (userID string, err error) {
-    log.Println("[PasswordAuthorizationHandler] ..")
+    log.Printf("[PasswordAuthorizationHandler] username: %s", username)
 
     // htpasswd, err := CheckPassword("./passwd")
     // err = htpasswd.AuthenticateUser(username, password)
@@ -131,13 +132,14 @@ func PasswordAuthorizationHandler(username, password string) (userID string, err
 }
 
 func AccessTokenExpHandler(w http.ResponseWriter, r *http.Request) (exp time.Duration, err error) {
+    // FIXME: it does not work???
     exp = time.Second * 3600
     log.Println("[AccessTokenExpHandler] exp=", exp)
     return
 }
 
 
-/// for htpasswd bcrypt
+/// for htpasswd bcrypt, used in 'PasswordAuthorizationHandler()'
 func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     file, err := os.Open(filename)
     if err != nil{
@@ -148,5 +150,4 @@ func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
     htpasswd, err = util.NewHTPasswd(rio)
     return
 }
-
 

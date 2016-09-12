@@ -83,7 +83,6 @@ func pbkdf2_validate(password string, hash string) (bool, error) {
 func checkPasswordHash(salthash string, password string) bool {
     isok, err := pbkdf2_validate(password, salthash)
     if !isok || err != nil {
-        log.Printf("[checkPasswordHash] err=%s, invalid password=%s", err, password)
         return false
     }
 
@@ -92,11 +91,11 @@ func checkPasswordHash(salthash string, password string) bool {
 
 func genPasswordHash(password string) (salthash string, err error) {
     method := "sha1"
-    iterations := kDefaultIter
     salt := genSalt(8)
+    iterations := kDefaultIter
+
     rk := pbkdf2_hash(method, []byte(password), []byte(salt), iterations)
     result := hex.EncodeToString(rk)
-
     if len(result) <= 0 {
         err = ErrHashPasswordFailure
         return

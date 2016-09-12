@@ -58,7 +58,7 @@ func main() {
     /// default redis store
     storage, err := NewTokenStore(conf.Store)
     if err != nil {
-        log.Println("[main] NewTokenStore Error:", err.Error())
+        log.Println("[main] fail to NewTokenStore: ", err.Error())
         return
     }
     manager.MustTokenStorage(storage, err)
@@ -66,7 +66,7 @@ func main() {
     /// init users DB
     users := util.NewUsers(conf.Db.Engine, conf.Db.Connection)
     if users == nil {
-        log.Fatal("[main] fail to NewUsers")
+        log.Fatal("[main] fail to NewUsers (init db)")
         return
     }
 
@@ -123,7 +123,7 @@ func main() {
 
     /// start http server
     address := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
-    log.Println("Server is running at: ", address)
+    log.Println("[main] Server is running at: ", address)
     log.Fatal(http.ListenAndServe(address, nil))
 }
 
@@ -377,7 +377,7 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 func HtmlHandler(w http.ResponseWriter, filename string) {
     t, err := template.ParseFiles(filename)
     if err != nil {
-        log.Printf("[HtmlHandler] error: ", err.Error())
+        log.Println("[HtmlHandler] error: ", err.Error())
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }

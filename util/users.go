@@ -19,9 +19,16 @@ type Users struct {
     dbconn string
 }
 
+
+//
+// @dbtype: 'mysql' only now
+// @dbconn: the format,  "user:pass@[proto(addr)]/database",
+//      (a) "oauth:oauth@tcp(127.0.0.1:3306)/oauth",
+//      (b) "oauth:oauth@/oauth",
+//      (c) "oauth:oauth@unix(/var/run/mysql.sock)/oauth",
 func NewUsers(dbtype string, dbconn string) *Users {
-    db := initDB(dbtype, dbconn)
-    if db == nil {
+    var db *sql.DB
+    if db = initDB(dbtype, dbconn); db == nil {
         return nil
     }
 
@@ -46,10 +53,10 @@ func (u *Users) CheckUser(username string) bool {
     stmt := "SELECT uid FROM users WHERE username=?"
     err := u.db.QueryRow(stmt, username).Scan(&uid)
     if err == sql.ErrNoRows {
-        log.Printf("[CheckUser] - no username=%s in db", username)
+        log.Printf("[CheckUser] - no username: %s in db", username)
         return false
     }else if err != nil {
-        log.Printf("[CheckUser] - db error=%s", err.Error())
+        log.Printf("[CheckUser] - db error: %s", err.Error())
         return true
     }
 
@@ -63,8 +70,8 @@ func (u *Users) UpdatePassword(username, password string) (err error){
         return
     }
 
-    salt_hash, err := genPasswordHash(password)
-    if err != nil {
+    var salt_hash string
+    if salt_hash, err = genPasswordHash(password); err != nil {
         return
     }
 
@@ -90,8 +97,8 @@ func (u *Users) CreateUser(username, password string) (err error){
         return
     }
 
-    salt_hash, err := genPasswordHash(password)
-    if err != nil {
+    var salt_hash string
+    if salt_hash, err = genPasswordHash(password); err != nil {
         return
     }
 
@@ -116,12 +123,13 @@ func (u *Users) VerifyPassword(username, password string) (userID string, err er
     stmt := "SELECT uid, password FROM users WHERE username = ?"
     err = u.db.QueryRow(stmt, username).Scan(&userID, &db_salt_hash)
     if err != nil {
-        log.Println("fail to query sql: ", err.Error())
+        log.Println("[VerifyPassword] fail to query sql: ", err.Error())
         return
     }
 
     if !checkPasswordHash(db_salt_hash, password) {
         err = errors.ErrAccessDenied
+        log.Printf("[VerifyPassword] invalid password for username: %s", username)
     }
 
     return
@@ -138,13 +146,13 @@ func (u *Users) Close() {
 func initDB(engine, conn string) *sql.DB {
     db, err := sql.Open(engine, conn)
     if err != nil {
-        log.Println("fail to open db: %s - %s ", conn, err.Error())
+        log.Println("[initDB] fail to open db: %s - %s ", conn, err.Error())
         return nil
     }
     //defer db.Close()
 
     if err = db.Ping(); err != nil {
-        log.Println("fail to ping db: ", err.Error())
+        log.Println("[initDB] fail to ping db: ", err.Error())
         return nil
     }
 
