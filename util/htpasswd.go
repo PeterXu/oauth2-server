@@ -1,3 +1,4 @@
+// +build ignore
 package util
 
 import (
@@ -8,7 +9,6 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 )
-
 
 // htpasswd holds a path to a system .htpasswd file and the machinery to parse
 // it. Only bcrypt hash entries are supported.

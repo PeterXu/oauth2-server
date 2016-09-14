@@ -1,9 +1,8 @@
 package main
 
-
 const (
-    kMinPasswordLength int = 6
-    kMinUsernameLength int = 6
+	kMinPasswordLength int = 6
+	kMinUsernameLength int = 6
 
-    kDefaultConfig string = "server.toml"
+	kDefaultConfig string = "server.toml"
 )
