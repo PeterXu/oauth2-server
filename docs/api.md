@@ -87,12 +87,13 @@ Web Browser
 ===========
 
 ```
-"http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb"
-
 http://localhost:6543/signin
 
 http://localhost:6543/signup
 
 http://localhost:6543/reset
+
+http://localhost:6543/authorize?response_type=code&client_id=osso1&state=xyz&scope=app&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
+
 ```
 

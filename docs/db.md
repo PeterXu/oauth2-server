@@ -7,16 +7,14 @@ mysql
 
 insert user with password
 ```
-insert into users values(
-    '', uuid(), 'testuser', '', '', hash_password, '0'
-)
+INSERT INTO users(uid, username, password) VALUES (uuid(), ?, ?)"
 ```
 
 check user's password
 ```
-select substring(password,0,64) as salt, substring(password,64) as sha_passwd
-    from user where user.username = username;
-sha(user_passwd, salt) ==? password
+pbkdf2:method:iterations$salt$hashstring
+
+hash(method, raw_passwd, iterations) ==? hashstring
 ```
 
 
