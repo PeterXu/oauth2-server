@@ -13,6 +13,7 @@ func NewConfig(fname string) (conf Config, err error) {
 
 type Config struct {
 	Title   string
+	Flow    string
 	Listen  listenInfo
 	Clients map[string]clientInfo
 	Store   storeInfo

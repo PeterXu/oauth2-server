@@ -209,8 +209,22 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		us.Set("UserID", uid)
-		w.Header().Set("Location", "/auth")
-		w.WriteHeader(http.StatusFound)
+
+		//
+		// (a) for standard flow: user-allow required, http GET(/auth? -> /authorize?)
+		// (b) non-standard flow: jump to authorize directly, http POST
+		if gg.Config.Flow == "direct" {
+			form := us.Get("Form").(url.Values)
+			u := new(url.URL)
+			u.Path = "/authorize"
+			u.RawQuery = form.Encode()
+			w.Header().Set("Location", u.String())
+			w.WriteHeader(http.StatusFound)
+			us.Delete("Form")
+		} else {
+			w.Header().Set("Location", "/auth")
+			w.WriteHeader(http.StatusFound)
+		}
 		return
 	}
 	HtmlHandler(w, "template/signin.html")

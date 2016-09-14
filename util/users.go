@@ -185,4 +185,3 @@ func IsCell(cell string) bool {
 	isOk, _ := regexp.MatchString(`^[\d]{11}$`, cell)
 	return isOk
 }
-
