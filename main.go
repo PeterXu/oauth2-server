@@ -18,6 +18,8 @@ import (
 	"gopkg.in/session.v1"
 
 	"./util"
+
+	"github.com/tabalt/gracehttp"
 )
 
 type Global struct {
@@ -123,7 +125,7 @@ func main() {
 	/// start http server
 	address := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)
 	log.Println("[main] Server is running at: ", address)
-	log.Fatal(http.ListenAndServe(address, nil))
+	log.Fatal(gracehttp.ListenAndServe(address, nil))
 }
 
 func ResetHandler(w http.ResponseWriter, r *http.Request) {
