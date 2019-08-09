@@ -2,8 +2,8 @@ package main
 
 import (
 	//"log"
-	"./util"
 	"github.com/BurntSushi/toml"
+	"github.com/PeterXu/oauth2-server/util"
 )
 
 func NewConfig(fname string) (conf Config, err error) {

@@ -17,7 +17,7 @@ import (
 	"gopkg.in/oauth2.v3/server"
 	"gopkg.in/session.v1"
 
-	"./util"
+	"github.com/PeterXu/oauth2-server/util"
 
 	"github.com/tabalt/gracehttp"
 )
@@ -74,9 +74,7 @@ func main() {
 	/// new default server
 	srv := server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)
-	srv.SetInternalErrorHandler(func(err error) {
-		log.Println("[main] OAuth2 Error: ", err.Error())
-	})
+	srv.SetInternalErrorHandler(InternalErrorHandler)
 
 	/// set internel hook handler
 	srv.SetClientInfoHandler(ClientInfoHandler)
@@ -409,7 +407,7 @@ func ResponseDataWithJson(w http.ResponseWriter, data map[string]interface{}, st
 }
 
 func ResponseErrorWithJson(w http.ResponseWriter, respErr error) (err error) {
-	data, status := gg.Server.GetErrorData(respErr)
+	data, status, _ := gg.Server.GetErrorData(respErr)
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")

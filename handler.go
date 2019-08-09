@@ -11,8 +11,13 @@ import (
 	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/errors"
 
-	"./util"
+	"github.com/PeterXu/oauth2-server/util"
 )
+
+func InternalErrorHandler(err error) *errors.Response {
+	log.Println("[main] OAuth2 Error: ", err.Error())
+	return nil
+}
 
 /// config in file(ClientId, Secret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {

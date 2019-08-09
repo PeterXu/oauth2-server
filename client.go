@@ -8,7 +8,7 @@ import (
 	"log"
 	"strconv"
 
-	"./util"
+	"github.com/PeterXu/oauth2-server/util"
 )
 
 const (
@@ -55,14 +55,15 @@ func NewTokenStore(sinfo storeInfo) (store oauth2.TokenStore, err error) {
 	address := sinfo.Host + ":" + strconv.Itoa(sinfo.Port)
 	switch sinfo.Engine {
 	case "mongo":
-		store, err = mongo.NewTokenStore(mongo.NewConfig(
+		store = mongo.NewTokenStore(mongo.NewConfig(
 			"mongodb://"+address,
 			sinfo.Db,
-		))
+		), mongo.NewDefaultTokenConfig())
 	case "redis":
-		store, err = redis.NewTokenStore(&redis.Config{
+		options := &redis.Options{
 			Addr: address,
-		})
+		}
+		store = redis.NewRedisStore(options)
 	default:
 		log.Println("[NewTokenStore] Unsupported storage engine: ", sinfo.Engine)
 		return
