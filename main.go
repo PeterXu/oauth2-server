@@ -93,14 +93,16 @@ func main() {
 	http.HandleFunc("/reset", ResetHandler)
 	http.HandleFunc("/signup", SignupHandler)
 	http.HandleFunc("/signin", SigninHandler)
-	//http.HandleFunc("/signout", SignoutHandler)
+	http.HandleFunc("/signout", SignoutHandler)
 	http.HandleFunc("/auth", AuthHandler)
 	http.HandleFunc("/code", CodeHandler)
 	http.HandleFunc("/check", CheckHandler)
+	http.HandleFunc("/api/", ApiHandler)
 	http.HandleFunc("/", NotFoundHandler)
 
 	/// called by HandleAuthorizeRequest
 	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("[main], authorize begin")
 		err := srv.HandleAuthorizeRequest(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -180,6 +182,10 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 			ResponseErrorWithJson(w, errors.ErrServerError)
 			return
 		}
+		data := map[string]interface{}{
+			"code": "Success",
+		}
+		ResponseDataWithJson(w, data, 200)
 		return
 	}
 	HtmlHandler(w, "template/signup.html")
@@ -189,6 +195,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		us, err := gg.Sessions.SessionStart(w, r)
 		if err != nil {
+			log.Printf("SigninHandler, err=", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -206,19 +213,37 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		log.Printf("SigninHandler, verify pass ok, uid=", uid)
 		us.Set("UserID", uid)
+
+		if len(r.FormValue("client_id")) <= 0 {
+			r.Form.Set("client_id", kDefaultClientID)
+		}
+		if len(r.FormValue("response_type")) <= 0 {
+			// default use "token" not "code".
+			r.Form.Set("response_type", oauth2.Token.String())
+		}
+		r.Form.Del("username")
+		r.Form.Del("password")
+		us.Set("Form", r.Form)
 
 		//
 		// (a) for standard flow: user-allow required, http GET(/auth? -> /authorize?)
 		// (b) non-standard flow: jump to authorize directly, http POST
 		if gg.Config.Flow == "direct" {
-			form := us.Get("Form").(url.Values)
+			log.Printf("SigninHandler, direct")
 			u := new(url.URL)
 			u.Path = "/authorize"
-			u.RawQuery = form.Encode()
+
+			usform := us.Get("Form")
+			if usform != nil {
+				form := usform.(url.Values)
+				u.RawQuery = form.Encode()
+			}
+
+			log.Printf("SigninHandler, location=", u.String())
 			w.Header().Set("Location", u.String())
 			w.WriteHeader(http.StatusFound)
-			us.Delete("Form")
 		} else {
 			w.Header().Set("Location", "/auth")
 			w.WriteHeader(http.StatusFound)

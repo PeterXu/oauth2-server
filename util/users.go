@@ -51,10 +51,10 @@ func (u *Users) CheckUser(name string) bool {
 	stmt := "SELECT uid FROM users WHERE username=? or email=? or cell=?"
 	err := u.db.QueryRow(stmt, name, name, name).Scan(&uid)
 	if err == sql.ErrNoRows {
-		log.Printf("[CheckUser] - no username: %s in db", name)
+		//log.Printf("CheckUser - no username: %s in db", name)
 		return false
 	} else if err != nil {
-		log.Printf("[CheckUser] - db error: %s", err.Error())
+		log.Printf("CheckUser - db error: %s", err.Error())
 		return true
 	}
 
@@ -96,7 +96,8 @@ func (u *Users) CreateUser(name, password string) (err error) {
 
 	var salt_hash string
 	if salt_hash, err = genPasswordHash(password); err != nil {
-		return
+		log.Println("CreateUser, genPasswordHash err=", err)
+		return err
 	}
 
 	kind := getUserKind(name)
@@ -104,7 +105,8 @@ func (u *Users) CreateUser(name, password string) (err error) {
 
 	res, err := u.db.Exec(stmt, name, salt_hash)
 	if err != nil {
-		return
+		log.Println("CreateUser, db insert err=", err)
+		return err
 	}
 
 	num, err := res.RowsAffected()
@@ -112,8 +114,7 @@ func (u *Users) CreateUser(name, password string) (err error) {
 		err = ErrUserCreate
 		return
 	}
-
-	return
+	return nil
 }
 
 // This password should be also hashed by md5 or sha in sender

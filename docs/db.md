@@ -18,13 +18,13 @@ hash(method, raw_passwd, iterations) ==? hashstring
 ```
 
 
-create mysql database
+create oauth database and users table
 ```
 CREATE DATABASE IF NOT EXISTS oauth charset=utf8;
 USE oauth;
 CREATE TABLE `users` (
     `id` int(11) NOT NULL AUTO_INCREMENT,
-    `uid` varchar(32) NOT NULL UNIQUE,
+    `uid` varchar(36) NOT NULL UNIQUE,
     `password` varchar(128) NOT NULL,
 
     `username` varchar(64) DEFAULT NULL UNIQUE,

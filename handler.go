@@ -21,7 +21,7 @@ func InternalErrorHandler(err error) *errors.Response {
 
 /// config in file(ClientId, Secret)
 func ClientInfoHandler(r *http.Request) (clientID, clientSecret string, err error) {
-	//log.Println("[ClientInfoHandler] req: ", r)
+	log.Println("[ClientInfoHandler] req: ", r)
 	clientID = strings.TrimSpace(r.FormValue("client_id"))
 
 	if len(clientID) <= 0 {
