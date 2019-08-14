@@ -184,10 +184,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 			ResponseErrorWithJson(w, errors.ErrServerError)
 			return
 		}
-		data := map[string]interface{}{
-			"code": "Success",
-		}
-		ResponseDataWithJson(w, data, 200)
+		ResponseSuccessWithJson(w)
 		return
 	}
 	HtmlHandler(w, "template/signup.html")
@@ -439,6 +436,18 @@ func ResponseErrorWithJson(w http.ResponseWriter, respErr error) (err error) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
 	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(data)
+	return
+}
+
+func ResponseSuccessWithJson(w http.ResponseWriter) (err error) {
+	data := map[string]interface{}{
+		"status": "Success",
+	}
+	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.WriteHeader(200)
 	err = json.NewEncoder(w).Encode(data)
 	return
 }

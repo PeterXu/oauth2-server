@@ -32,11 +32,13 @@ var (
 
 // oauth2 conference
 var (
+	ErrConferenceInvalidRequest  = errors.New("conference invalid request")
 	ErrConferenceInvalidArgument = errors.New("conference invalid argument")
 
-	ErrConferenceWrongPassword = errors.New("conference had wrong password")
-	ErrConferenceClosed        = errors.New("conference had been closed")
-	ErrConferenceEnded         = errors.New("conference had been ended")
-	ErrConferenceReachMaxSize  = errors.New("conference had reached max size")
+	ErrConferenceNotExist      = errors.New("conference not exist")
+	ErrConferenceWrongPassword = errors.New("conference wrong password")
+	ErrConferenceClosed        = errors.New("conference closed")
+	ErrConferenceEnded         = errors.New("conference ended")
+	ErrConferenceReachMaxSize  = errors.New("conference reached max size")
 	ErrConferenceNotCreator    = errors.New("conference not creator")
 )

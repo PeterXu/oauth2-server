@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -104,24 +105,102 @@ type Conference struct {
 	rosters map[string]bool
 }
 
+func NewConference(title, creator, password string) *Conference {
+	return &Conference{
+		cid:      0,
+		title:    title,
+		creator:  creator,
+		password: password,
+		hostId:   creator,
+		closed:   false,
+		rosters:  make(map[string]bool),
+	}
+}
+
+func genInt3(n0, delta0 int, n2, delta2 int) int {
+	nn := make([]int, 3)
+	nn[0] = rand.Intn(n0) + delta0
+	if nn[0] == 0 {
+		nn[1] = rand.Intn(8) + 1
+		nn[2] = rand.Intn(8) + 1
+	} else {
+		nn[1] = rand.Intn(9)
+		if nn[1] == 0 {
+			nn[2] = rand.Intn(8) + 1
+		} else {
+			nn[2] = rand.Intn(n2) + delta2
+		}
+	}
+	for {
+		// one is 0
+		if (nn[0] & nn[1] & nn[2]) == 0 {
+			break
+		}
+		if (nn[0] - nn[1]) == (nn[1] - nn[2]) {
+			break
+		}
+		if (nn[0] / nn[1]) == (nn[1] / nn[2]) {
+			break
+		}
+		idx := rand.Intn(2)
+		nn[2] = nn[idx]
+		break
+	}
+	return (nn[0]*100 + nn[1]*10 + nn[2])
+}
+
+func genConferenceId() int {
+	p0 := genInt3(8, 1, 9, 0)
+	p1 := genInt3(9, 0, 9, 0)
+	p2 := genInt3(9, 0, 8, 1)
+	return (((p0*1000 + p1) * 1000) + p2)
+}
+
 func (s *TokenStoreX) wrapperKey(id int) string {
 	return fmt.Sprintf("%s-%d", "oauth2-conference", id)
 }
 
-func (s *TokenStoreX) joinConference(info *Conference) error {
+func (s *TokenStoreX) createConference(info *Conference) error {
 	ct := time.Now()
-	if conf, err := s._checkConference(info.cid); err == nil {
-		// exist and nop
+	for {
+		cid := genConferenceId()
+		if conf, err := s._checkConference(cid); err != nil {
+			info.cid = cid
+			break
+		} else {
+			duration := ct.Sub(conf.start)
+			const kTimeoutDuration = 60 * 12 * 30 * 24 * time.Hour // 12 years
+			if duration > kTimeoutDuration {
+				info.cid = cid
+				break
+			}
+		}
+	}
+
+	info.start = ct
+	if info.maxSize >= 0 && info.maxSize < 3 {
+		info.maxSize = 3
+	}
+	if len(info.title) == 0 || len(info.title) >= 512 || len(info.creator) == 0 {
+		return util.ErrConferenceInvalidArgument
+	}
+
+	return s._updateConference(info)
+}
+
+func (s *TokenStoreX) joinConference(cid int, fromId string) error {
+	if conf, err := s._checkConference(cid); err == nil {
 		if conf.closed {
 			return util.ErrConferenceClosed
 		}
 
-		duration := ct.Sub(info.start)
+		ct := time.Now()
+		duration := ct.Sub(conf.start)
 		if duration >= conf.duration {
 			return util.ErrConferenceEnded
 		}
 
-		if conf.password != info.password {
+		if conf.password != conf.password {
 			return util.ErrConferenceWrongPassword
 		}
 
@@ -135,22 +214,11 @@ func (s *TokenStoreX) joinConference(info *Conference) error {
 			return util.ErrConferenceReachMaxSize
 		}
 
-		conf.rosters[info.creator] = true
+		conf.rosters[fromId] = true
 		return nil
 	}
 
-	info.start = ct
-	info.closed = false
-	info.hostId = info.creator
-
-	if info.maxSize >= 0 && info.maxSize < 3 {
-		info.maxSize = 3
-	}
-	if len(info.title) == 0 || len(info.title) >= 512 || len(info.creator) == 0 {
-		return util.ErrConferenceInvalidArgument
-	}
-
-	return s._updateConference(info)
+	return util.ErrConferenceNotExist
 }
 
 func (s *TokenStoreX) leaveConference(cid int, fromId string) error {
