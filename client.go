@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/go-oauth2/mongo"
-	"github.com/go-oauth2/redis"
 	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/models"
 	"log"
 	"strconv"
 
+	"github.com/PeterXu/oauth2-server/mongo"
+	"github.com/PeterXu/oauth2-server/redis"
 	"github.com/PeterXu/oauth2-server/util"
 )
 
