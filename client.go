@@ -1,14 +1,23 @@
 package main
 
 import (
-	"gopkg.in/oauth2.v3"
-	"gopkg.in/oauth2.v3/models"
+	"fmt"
 	"log"
 	"strconv"
+	"time"
+
+	jsoniter "github.com/json-iterator/go"
+	"gopkg.in/oauth2.v3"
+	"gopkg.in/oauth2.v3/models"
 
 	"github.com/PeterXu/oauth2-server/mongo"
 	"github.com/PeterXu/oauth2-server/redis"
 	"github.com/PeterXu/oauth2-server/util"
+)
+
+var (
+	jsonMarshal   = jsoniter.Marshal
+	jsonUnmarshal = jsoniter.Unmarshal
 )
 
 const (
@@ -51,23 +60,162 @@ func NewMyClientStore(clients map[string]clientInfo) oauth2.ClientStore {
 	}
 }
 
-func NewTokenStore(sinfo storeInfo) (store oauth2.TokenStore, err error) {
+func NewTokenStore(sinfo storeInfo) (store *TokenStoreX, err error) {
 	address := sinfo.Host + ":" + strconv.Itoa(sinfo.Port)
 	switch sinfo.Engine {
 	case "mongo":
-		store = mongo.NewTokenStore(mongo.NewConfig(
+		mstore := mongo.NewTokenStore(mongo.NewConfig(
 			"mongodb://"+address,
 			sinfo.Db,
 		), mongo.NewDefaultTokenConfig())
+		store = &TokenStoreX{mstore, mstore, nil}
 	case "redis":
 		options := &redis.Options{
 			Addr: address,
 		}
-		store = redis.NewRedisStore(options)
+		rstore := redis.NewRedisStore(options)
+		store = &TokenStoreX{rstore, nil, rstore}
 	default:
 		log.Println("[NewTokenStore] Unsupported storage engine: ", sinfo.Engine)
 		return
 	}
 
 	return
+}
+
+type TokenStoreX struct {
+	oauth2.TokenStore
+	mts *mongo.TokenStore
+	rts *redis.TokenStore
+}
+
+type Conference struct {
+	cid      int
+	title    string
+	creator  string
+	password string
+	maxSize  int
+	start    time.Time
+	duration time.Duration
+
+	// dynamic status
+	hostId  string
+	closed  bool
+	rosters map[string]bool
+}
+
+func (s *TokenStoreX) wrapperKey(id int) string {
+	return fmt.Sprintf("%s-%d", "oauth2-conference", id)
+}
+
+func (s *TokenStoreX) joinConference(info *Conference) error {
+	ct := time.Now()
+	if conf, err := s._checkConference(info.cid); err == nil {
+		// exist and nop
+		if conf.closed {
+			return util.ErrConferenceClosed
+		}
+
+		duration := ct.Sub(info.start)
+		if duration >= conf.duration {
+			return util.ErrConferenceEnded
+		}
+
+		if conf.password != info.password {
+			return util.ErrConferenceWrongPassword
+		}
+
+		liveSize := 0
+		for _, had := range conf.rosters {
+			if had {
+				liveSize += 1
+			}
+		}
+		if conf.maxSize >= 0 && liveSize >= conf.maxSize {
+			return util.ErrConferenceReachMaxSize
+		}
+
+		conf.rosters[info.creator] = true
+		return nil
+	}
+
+	info.start = ct
+	info.closed = false
+	info.hostId = info.creator
+
+	if info.maxSize >= 0 && info.maxSize < 3 {
+		info.maxSize = 3
+	}
+	if len(info.title) == 0 || len(info.title) >= 512 || len(info.creator) == 0 {
+		return util.ErrConferenceInvalidArgument
+	}
+
+	return s._updateConference(info)
+}
+
+func (s *TokenStoreX) leaveConference(cid int, fromId string) error {
+	if conf, err := s._checkConference(cid); err == nil {
+		if _, ok := conf.rosters[fromId]; ok {
+			conf.rosters[fromId] = false
+		}
+		if fromId == conf.creator {
+			conf.closed = true
+		} else {
+			if fromId == conf.hostId {
+				conf.hostId = conf.creator
+			}
+		}
+		return s._updateConference(conf)
+	} else {
+		return err
+	}
+}
+
+func (s *TokenStoreX) updateConferenceHost(cid int, fromId string, hostId string) error {
+	if conf, err := s._checkConference(cid); err == nil {
+		if conf.creator != fromId {
+			return util.ErrConferenceNotCreator
+		}
+		conf.hostId = hostId
+		return s._updateConference(conf)
+	} else {
+		return err
+	}
+}
+
+func (s *TokenStoreX) _checkConference(cid int) (*Conference, error) {
+	var err error
+	if s.rts != nil {
+		result := s.rts.CLI().Get(s.wrapperKey(cid))
+		if buf, err := s.rts.ParseData(result); err == nil {
+			if conf, err := s._parseConference(buf); err == nil {
+				return conf, nil
+			}
+		}
+	}
+	return nil, err
+}
+
+func (s *TokenStoreX) _parseConference(buf []byte) (*Conference, error) {
+	var info Conference
+	if err := jsonUnmarshal(buf, &info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
+func (s *TokenStoreX) _updateConference(info *Conference) error {
+	jv, err := jsonMarshal(info)
+	if err != nil {
+		return err
+	}
+
+	if s.rts != nil {
+		pipe := s.rts.CLI().TxPipeline()
+		pipe.Set(s.wrapperKey(info.cid), jv, 0)
+		if _, err := pipe.Exec(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

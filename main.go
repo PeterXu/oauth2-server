@@ -27,6 +27,7 @@ type Global struct {
 	Users    *util.Users
 	Config   Config
 	Server   *server.Server
+	Store    *TokenStoreX
 }
 
 var gg Global
@@ -57,12 +58,12 @@ func main() {
 	manager.MapClientStorage(NewMyClientStore(conf.Clients))
 
 	/// default redis store
-	storage, err := NewTokenStore(conf.Store)
+	store, err := NewTokenStore(conf.Store)
 	if err != nil {
 		log.Println("[main] fail to NewTokenStore: ", err.Error())
 		return
 	}
-	manager.MustTokenStorage(storage, err)
+	manager.MustTokenStorage(store, err)
 
 	/// init users DB
 	users := util.NewUsers(conf.Db.Engine, conf.Db.Connection)
@@ -121,6 +122,7 @@ func main() {
 	gg.Config = conf
 	gg.Users = users
 	gg.Server = srv
+	gg.Store = store
 
 	/// start http server
 	address := conf.Listen.Host + ":" + strconv.Itoa(conf.Listen.Port)

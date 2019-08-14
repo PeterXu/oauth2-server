@@ -4,6 +4,7 @@ import (
 	"errors"
 )
 
+// oauth2 token/code
 var (
 	ErrFailed = errors.New("failed")
 
@@ -27,4 +28,15 @@ var (
 
 	// ErrAuthenticationFailure returned when authentication failure to be presented to agent.
 	ErrAuthenticationFailure = errors.New("authentication failure")
+)
+
+// oauth2 conference
+var (
+	ErrConferenceInvalidArgument = errors.New("conference invalid argument")
+
+	ErrConferenceWrongPassword = errors.New("conference had wrong password")
+	ErrConferenceClosed        = errors.New("conference had been closed")
+	ErrConferenceEnded         = errors.New("conference had been ended")
+	ErrConferenceReachMaxSize  = errors.New("conference had reached max size")
+	ErrConferenceNotCreator    = errors.New("conference not creator")
 )

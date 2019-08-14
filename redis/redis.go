@@ -76,6 +76,27 @@ func (s *TokenStore) Close() error {
 	return s.cli.Close()
 }
 
+func (s *TokenStore) CLI() clienter {
+	return s.cli
+}
+
+func (s *TokenStore) ParseData(result *redis.StringCmd) ([]byte, error) {
+	if ok, err := s.checkError(result); err != nil {
+		return nil, err
+	} else if ok {
+		return nil, nil
+	}
+
+	buf, err := result.Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return buf, nil
+}
+
 func (s *TokenStore) wrapperKey(key string) string {
 	return fmt.Sprintf("%s%s", s.ns, key)
 }
