@@ -21,6 +21,11 @@ const (
 
 func ApiHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("[api], begin", r.URL)
+	token := strings.TrimSpace(r.FormValue("token"))
+	if len(token) > 0 {
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, kConferenceApiV1) {
 		fromId := strings.TrimSpace(r.FormValue("fromid"))
 		if len(fromId) == 0 {
