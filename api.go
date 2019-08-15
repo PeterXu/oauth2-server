@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/PeterXu/oauth2-server/util"
@@ -21,42 +22,64 @@ const (
 func ApiHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("[api], begin", r.URL)
 	if strings.HasPrefix(r.URL.Path, kConferenceApiV1) {
-		cid := 0
-		fromId := ""
+		fromId := strings.TrimSpace(r.FormValue("fromid"))
+		if len(fromId) == 0 {
+			Response400ErrorWithJson(w, util.ErrConferenceInvalidArgument)
+			return
+		}
+
 		if strings.Compare(r.URL.Path, kConferenceApiV1Create) == 0 {
-			conf := NewConference("Testing Conference", "test521", "")
+			title := strings.TrimSpace(r.FormValue("title"))
+			password := strings.TrimSpace(r.FormValue("password"))
+
+			conf := NewConference(title, fromId, password)
 			if err := gg.Store.createConference(conf); err != nil {
-				ResponseErrorWithJson(w, err)
+				Response400ErrorWithJson(w, err)
 			} else {
-				// TODO: response conference id
-				ResponseSuccessWithJson(w)
+				Response200DataWithJson(w, map[string]interface{}{
+					"cid":     conf.Cid,
+					"servers": conf.Servers,
+					"token":   "conf token",
+				})
 			}
-		} else if strings.Compare(r.URL.Path, kConferenceApiV1Join) == 0 {
-			if err := gg.Store.joinConference(cid, fromId); err != nil {
-				ResponseErrorWithJson(w, err)
+			return
+		}
+
+		// cid required for other apis except kConferenceApiV1Create
+		cid, err := strconv.Atoi(strings.TrimSpace(r.FormValue("cid")))
+		if err != nil {
+			Response400ErrorWithJson(w, util.ErrConferenceInvalidArgument)
+			return
+		}
+
+		if strings.Compare(r.URL.Path, kConferenceApiV1Join) == 0 {
+			password := strings.TrimSpace(r.FormValue("password"))
+			if conf, err := gg.Store.joinConference(cid, fromId, password); err != nil {
+				Response400ErrorWithJson(w, err)
 			} else {
-				// TODO: response media server
-				ResponseSuccessWithJson(w)
+				Response200DataWithJson(w, map[string]interface{}{
+					"cid":     conf.Cid,
+					"servers": conf.Servers,
+					"token":   "conf token",
+				})
 			}
 		} else if strings.Compare(r.URL.Path, kConferenceApiV1Update) == 0 {
-			hostId := ""
+			hostId := strings.TrimSpace(r.FormValue("hostid"))
 			if err := gg.Store.updateConferenceHost(cid, fromId, hostId); err != nil {
-				ResponseErrorWithJson(w, err)
+				Response400ErrorWithJson(w, err)
 			} else {
-				// TODO: response media server
-				ResponseSuccessWithJson(w)
+				Response200SuccessWithJson(w)
 			}
 		} else if strings.Compare(r.URL.Path, kConferenceApiV1Leave) == 0 {
 			if err := gg.Store.leaveConference(cid, fromId); err != nil {
-				ResponseErrorWithJson(w, err)
+				Response400ErrorWithJson(w, err)
 			} else {
-				// TODO: response media server
-				ResponseSuccessWithJson(w)
+				Response200SuccessWithJson(w)
 			}
 		} else {
-			ResponseErrorWithJson(w, util.ErrConferenceInvalidRequest)
+			Response400ErrorWithJson(w, util.ErrConferenceInvalidRequest)
 		}
 	} else {
-		ResponseErrorWithJson(w, util.ErrConferenceInvalidRequest)
+		Response400ErrorWithJson(w, util.ErrConferenceInvalidRequest)
 	}
 }
