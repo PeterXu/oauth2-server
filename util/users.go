@@ -40,10 +40,26 @@ func NewUsers(dbtype string, dbconn string) *Users {
 func (u *Users) GetUserID(name string) (uid string, err error) {
 	stmt := "SELECT uid FROM users WHERE username=? or email=? or cell=?"
 	if err = u.db.QueryRow(stmt, name, name, name).Scan(&uid); err != nil {
-		log.Printf("fail to get userid of (%s) - %s", name, err.Error())
+		log.Printf("fail to GetUserID (%s) - %s", name, err.Error())
 		return
 	}
 	return
+}
+
+func (u *Users) CheckUserID(uid, name string) bool {
+	var stmt string
+	if len(name) == 0 {
+		stmt = "SELECT uid FROM users WHERE uid=?"
+		if err := u.db.QueryRow(stmt, uid).Scan(&uid); err != nil {
+			return false
+		}
+	} else {
+		stmt = "SELECT uid FROM users WHERE uid=? or (username=? or email=? or cell=?)"
+		if err := u.db.QueryRow(stmt, uid, name, name, name).Scan(&uid); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (u *Users) CheckUser(name string) bool {

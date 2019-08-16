@@ -10,6 +10,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/models"
+	"gopkg.in/oauth2.v3/utils/uuid"
 
 	"github.com/PeterXu/oauth2-server/mongo"
 	"github.com/PeterXu/oauth2-server/redis"
@@ -19,16 +20,6 @@ import (
 var (
 	jsonMarshal   = jsoniter.Marshal
 	jsonUnmarshal = jsoniter.Unmarshal
-)
-
-const (
-	kDefaultClientID     string = "defaultID"
-	kDefaultClientSecret string = "defaultSecret"
-	kDefaultClientDomain string = "http://localhost"
-
-	kDefaultUserSize = 3
-	kTimeoutDuration = 60 * 12 * 30 * 24 * time.Hour // N years
-	kDefaultDuration = 45 * time.Minute
 )
 
 type MyClientStore struct {
@@ -180,6 +171,10 @@ func (s *TokenStoreX) wrapperKey(id int) string {
 	return fmt.Sprintf("%s-%d", "oauth2-conference", id)
 }
 
+func (s *TokenStoreX) wrapperKey2(id string) string {
+	return fmt.Sprintf("%s-%s", "oauth2-uid-tmp", id)
+}
+
 func (s *TokenStoreX) createConference(info *Conference) error {
 	ct := time.Now()
 	for {
@@ -319,4 +314,56 @@ func (s *TokenStoreX) _updateConference(info *Conference) error {
 		}
 	}
 	return nil
+}
+
+func (s *TokenStoreX) _updateData(key string, value interface{}, duration time.Duration) error {
+	if s.rts != nil {
+		pipe := s.rts.CLI().TxPipeline()
+		pipe.Set(key, value, duration)
+		if _, err := pipe.Exec(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *TokenStoreX) _checkData(key string) error {
+	if s.rts != nil {
+		result := s.rts.CLI().Get(key)
+		if buf, err := s.rts.ParseData(result); err == nil {
+			if len(buf) > 0 {
+				return nil // exist
+			}
+			return util.ErrNotExist
+		}
+	}
+	return util.ErrNotDone
+}
+
+func (s *TokenStoreX) randUid() string {
+	var uid string
+	quit := false
+	tickChan := time.NewTicker(time.Millisecond * 100).C
+	for !quit {
+		select {
+		case <-tickChan:
+			quit = true
+			break
+		default:
+			uid = uuid.Must(uuid.NewRandom()).String()
+			key := s.wrapperKey2(uid)
+			if err := s._checkData(key); err != nil {
+				if err := s._updateData(key, true, 0); err == nil {
+					quit = true
+					break
+				}
+			}
+		}
+	}
+	return uid
+}
+
+func (s *TokenStoreX) checkUid(uid string) error {
+	key := s.wrapperKey2(uid)
+	return s._checkData(key)
 }

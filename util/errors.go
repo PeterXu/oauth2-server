@@ -32,6 +32,13 @@ var (
 
 // oauth2 conference
 var (
+	ErrNotDone  = errors.New("not done")
+	ErrNotExist = errors.New("not exist")
+
+	ErrConferenceNoAccessToken      = errors.New("conference no access token")
+	ErrConferenceInvalidAccessToken = errors.New("conference invalid access token")
+	ErrConferenceNoPriviledge       = errors.New("conference no priviledge")
+
 	ErrConferenceInvalidRequest  = errors.New("conference invalid request")
 	ErrConferenceInvalidArgument = errors.New("conference invalid argument")
 

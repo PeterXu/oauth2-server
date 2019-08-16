@@ -143,6 +143,11 @@ func AccessTokenExpHandler(w http.ResponseWriter, r *http.Request) (exp time.Dur
 	return
 }
 
+func AuthorizeScopeHandler(w http.ResponseWriter, r *http.Request) (scope string, err error) {
+	scope = ""
+	return
+}
+
 /// for htpasswd bcrypt, used in 'PasswordAuthorizationHandler()'
 func CheckPassword(filename string) (htpasswd *util.HTPasswd, err error) {
 	file, err := os.Open(filename)

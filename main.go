@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tabalt/gracehttp"
 	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/errors"
 	"gopkg.in/oauth2.v3/manage"
@@ -18,8 +19,6 @@ import (
 	"gopkg.in/session.v1"
 
 	"github.com/PeterXu/oauth2-server/util"
-
-	"github.com/tabalt/gracehttp"
 )
 
 type Global struct {
@@ -101,7 +100,7 @@ func main() {
 	http.HandleFunc("/api/", ApiHandler)
 	http.HandleFunc("/", NotFoundHandler)
 
-	/// called by HandleAuthorizeRequest
+	// called by HandleAuthorizeRequest
 	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("[main], authorize begin")
 		err := srv.HandleAuthorizeRequest(w, r)
@@ -112,6 +111,7 @@ func main() {
 
 	/// called by HandleTokenRequest
 	http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("[main], token begin")
 		err := srv.HandleTokenRequest(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -212,9 +212,10 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("SigninHandler, verify pass ok, uid=", uid)
 		us.Set("UserID", uid)
 
+		// required: client_id/response_type/state/scope
+		// optional: redirect_uri,
 		if len(r.FormValue("client_id")) <= 0 {
 			r.Form.Set("client_id", kDefaultClientID)
 		}
@@ -222,29 +223,22 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			// default use "token" not "code".
 			r.Form.Set("response_type", oauth2.Token.String())
 		}
-		r.Form.Del("username")
-		r.Form.Del("password")
+
 		us.Set("Form", r.Form)
 
-		//
 		// (a) for standard flow: user-allow required, http GET(/auth? -> /authorize?)
 		// (b) non-standard flow: jump to authorize directly, http POST
 		if gg.Config.Flow == "direct" {
-			log.Printf("SigninHandler, direct")
 			u := new(url.URL)
 			u.Path = "/authorize"
-
-			usform := us.Get("Form")
-			if usform != nil {
-				form := usform.(url.Values)
-				u.RawQuery = form.Encode()
-			}
-
-			log.Printf("SigninHandler, location=", u.String())
+			u.RawQuery = r.Form.Encode()
 			w.Header().Set("Location", u.String())
 			w.WriteHeader(http.StatusFound)
 		} else {
-			w.Header().Set("Location", "/auth")
+			u := new(url.URL)
+			u.Path = "/auth"
+			u.RawQuery = r.Form.Encode()
+			w.Header().Set("Location", u.String())
 			w.WriteHeader(http.StatusFound)
 		}
 		return
@@ -266,7 +260,7 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	if us.Get("UserID") == nil {
 		w.Header().Set("Location", "/signin")
-		w.WriteHeader(http.StatusFound)
+		w.WriteHeader(http.StatusFound) // 302
 		return
 	}
 
@@ -290,17 +284,39 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 
 func CodeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		username := strings.TrimSpace(r.FormValue("username"))
-		password := strings.TrimSpace(r.FormValue("password"))
-		if len(username) < kMinUsernameLength || len(password) < kMinPasswordLength {
+		var rtype oauth2.ResponseType
+		response_type := strings.TrimSpace(r.FormValue("response_type"))
+		if len(response_type) == 0 || response_type == "code" {
+			rtype = oauth2.Code
+		} else if response_type == "token" {
+			rtype = oauth2.Token
+		} else {
 			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
 			return
 		}
 
-		uid, err := gg.Users.VerifyPassword(username, password)
+		var uid string
+		username := strings.TrimSpace(r.FormValue("username"))
+		if len(username) == 0 {
+			uid = gg.Store.randUid()
+			//log.Println("new temporay uid=", uid)
+		} else {
+			password := strings.TrimSpace(r.FormValue("password"))
+			if len(username) < kMinUsernameLength || len(password) < kMinPasswordLength {
+				ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+				return
+			}
+
+			var err error
+			if uid, err = gg.Users.VerifyPassword(username, password); err != nil {
+				ResponseErrorWithJson(w, errors.ErrAccessDenied)
+				return
+			}
+		}
+
+		exp, err := strconv.Atoi(r.FormValue("exp"))
 		if err != nil {
-			ResponseErrorWithJson(w, errors.ErrAccessDenied)
-			return
+			exp = 0
 		}
 
 		clientID := strings.TrimSpace(r.FormValue("client_id"))
@@ -314,23 +330,24 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		redirectURI := cli.GetDomain()
+		//log.Println(redirectURI)
 
 		req := &server.AuthorizeRequest{
-			UserID:       uid,
-			RedirectURI:  redirectURI,
-			ResponseType: "code",
-			ClientID:     clientID,
-			State:        r.FormValue("state"),
-			Scope:        r.FormValue("scope"),
-			//AccessTokenExp: time.Second * 60,
+			UserID:         uid,
+			RedirectURI:    redirectURI,
+			ResponseType:   rtype,
+			ClientID:       clientID,
+			State:          r.FormValue("state"),
+			Scope:          r.FormValue("scope"),
+			AccessTokenExp: time.Second * time.Duration(exp),
 		}
 
 		tgr := &oauth2.TokenGenerateRequest{
-			ClientID:    req.ClientID,
-			UserID:      req.UserID,
-			RedirectURI: req.RedirectURI,
-			Scope:       req.Scope,
-			//AccessTokenExp: req.AccessTokenExp,
+			ClientID:       req.ClientID,
+			UserID:         req.UserID,
+			RedirectURI:    req.RedirectURI,
+			Scope:          req.Scope,
+			AccessTokenExp: req.AccessTokenExp,
 		}
 
 		ti, err := gg.Server.Manager.GenerateAuthToken(req.ResponseType, tgr)
@@ -339,10 +356,16 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := map[string]interface{}{
-			"code":       ti.GetCode(),
-			"expires_in": int64(ti.GetCodeExpiresIn() / time.Second),
+		data := make(map[string]interface{})
+		if rtype == oauth2.Code {
+			data["code"] = ti.GetCode()
+			data["expires_in"] = int64(ti.GetCodeExpiresIn() / time.Second)
+		} else {
+			data["access_token"] = ti.GetAccess()
+			data["expires_in"] = int64(ti.GetAccessExpiresIn() / time.Second)
+			data["refresh_token"] = ti.GetRefresh()
 		}
+
 		if req.State != "" {
 			data["state"] = req.State
 		}
@@ -357,31 +380,32 @@ func CodeHandler(w http.ResponseWriter, r *http.Request) {
 
 func CheckHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		// Support no username
 		username := strings.TrimSpace(r.FormValue("username"))
+		if len(username) > 0 {
+			if len(username) < kMinUsernameLength {
+				ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+				return
+			}
+		}
+
 		scope := strings.TrimSpace(r.FormValue("scope"))
-		if len(username) < kMinUsernameLength {
-			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
-			return
+
+		// Should have one of: access_token or refresh_token
+		var access_token, refresh_token string
+		access_token = strings.TrimSpace(r.FormValue("token"))
+		if len(access_token) == 0 {
+			access_token = strings.TrimSpace(r.FormValue("access_token"))
+			if len(access_token) == 0 {
+				refresh_token = strings.TrimSpace(r.FormValue("refresh_token"))
+				if len(refresh_token) == 0 {
+					ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+					return
+				}
+			}
 		}
 
-		access_token := strings.TrimSpace(r.FormValue("access_token"))
-		refresh_token := strings.TrimSpace(r.FormValue("refresh_token"))
-		if len(access_token) <= 0 && len(refresh_token) <= 0 {
-			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
-			return
-		}
-
-		if len(access_token) > 0 && len(refresh_token) > 0 {
-			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
-			return
-		}
-
-		uid, err := gg.Users.GetUserID(username)
-		if len(uid) <= 0 {
-			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
-			return
-		}
-
+		var err error
 		var ti oauth2.TokenInfo
 		if len(access_token) > 0 {
 			ti, err = gg.Server.Manager.LoadAccessToken(access_token)
@@ -394,10 +418,27 @@ func CheckHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if uid != ti.GetUserID() || scope != ti.GetScope() {
+		if scope != ti.GetScope() {
 			ResponseErrorWithJson(w, errors.ErrInvalidRequest)
 			return
 		}
+
+		uid := ti.GetUserID()
+		if len(username) == 0 {
+			// check uid in Store
+			//log.Println("uid:", uid)
+			if err = gg.Store.checkUid(uid); err != nil {
+				ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+				return
+			}
+		} else {
+			// check uid in Users
+			if !gg.Users.CheckUserID(uid, username) {
+				ResponseErrorWithJson(w, errors.ErrInvalidRequest)
+				return
+			}
+		}
+		Response200SuccessWithJson(w)
 	}
 }
 
