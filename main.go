@@ -27,6 +27,7 @@ type Global struct {
 	Config   Config
 	Server   *server.Server
 	Store    *TokenStoreX
+	Hub      *Hub
 }
 
 var gg Global
@@ -50,6 +51,13 @@ func main() {
 		return
 	}
 	//log.Println("[main] config: ", conf)
+
+	/// Start service
+	if conf.Service.Enable {
+		gg.Hub = newHub()
+		go gg.Hub.run()
+		go NewService(conf.Service)
+	}
 
 	manager := manage.NewDefaultManager()
 	// token memory store

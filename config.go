@@ -18,6 +18,7 @@ type Config struct {
 	Clients map[string]clientInfo
 	Store   storeInfo
 	Db      dbInfo
+	Service serviceInfo
 }
 
 func (c *Config) GetClientByID(id string) (cinfo clientInfo, err error) {
@@ -60,4 +61,10 @@ type dbInfo struct {
 	// (a) oauth:oauth@/oauth;
 	// (b) oauth:oauth@tcp(127.0.0.1:3306)/oauth
 	Connection string
+}
+
+type serviceInfo struct {
+	Enable bool
+	Host   string
+	Port   int
 }

@@ -32,3 +32,8 @@ engine = "mysql"
 # oauth:oauth@tcp(127.0.0.1:3306)/oauth
 connection = "oauth:oauth@/oauth"
 
+
+[service]
+enable = true
+host = ""
+port = 9090

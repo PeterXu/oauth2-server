@@ -1,0 +1,67 @@
+package piex;
+
+enum ServerType {
+	SERVER_STARTED		= 1;
+	SERVER_STOPPED		= 2;
+	SERVER_CAPACITY		= 10;
+}
+
+message ServerStatus {
+	optional ServerType type		= 1;
+	optional uint64 timestamp		= 2;
+	optional string zone			= 3;
+
+	optional string ip				= 20;
+	optional string domain			= 21;
+	optional string tcp_port		= 22;
+	optional string udp_port		= 23;
+
+	optional uint32 connection_count	= 50;
+	optional uint32 conference_count	= 51;
+	optional uint32 roster_count		= 52;
+	optional uint32 audio_count			= 53;
+	optional uint32 video_count			= 54;
+}
+
+enum ConferenceType {
+	CONFERENCE_STARTED		= 1;
+	CONFERECNE_STOPPED		= 2;
+	CONFERENCE_BROADCAST	= 10;
+}
+
+message NetworkStatus {
+	optional uint32 ssrc		= 1;
+	optional uint32 bitrate		= 2;
+	optional uint32 lossrate	= 3;
+	optional uint32 rtt			= 4;
+	optional uint32 jitter		= 5;
+
+	optional uint32 width		= 20;
+	optional uint32 height		= 21;
+	optional uint32 fps			= 22;
+}
+
+message RosterStatus {
+	optional string roster_id				= 1;
+
+	optional bool audio_on					= 10;
+	optional bool audio_mute				= 11;
+	optional NetworkStatus audio_sending	= 15;
+	optional NetworkStatus audio_recving	= 16;
+
+	optional bool video_on					= 30;
+	repeated NetworkStatus video_sendings	= 35;
+	repeated NetworkStatus video_recvings	= 36;
+}
+
+message ConferenceStatus {
+	optional ConferenceType type	= 1;
+	optional uint64 timestamp		= 2;
+	optional uint32 cid				= 3;
+	
+	optional uint32 roster_count	= 20;
+	optional uint32 audio_count		= 21;
+	optional uint32 video_count		= 22;
+
+	repeated RosterStatus roster_status = 50;
+}
