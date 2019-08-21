@@ -1,4 +1,5 @@
-package piex;
+syntax = "proto2";
+//package pie;
 
 enum ServerType {
 	SERVER_STARTED		= 1;
@@ -8,13 +9,14 @@ enum ServerType {
 
 message ServerStatus {
 	optional ServerType type		= 1;
-	optional uint64 timestamp		= 2;
-	optional string zone			= 3;
+	optional string zone			= 2;
+	optional string name			= 3;
+	optional uint32 capacity		= 4;
 
 	optional string ip				= 20;
 	optional string domain			= 21;
-	optional string tcp_port		= 22;
-	optional string udp_port		= 23;
+	optional uint32 tcp_port		= 22;
+	optional uint32 udp_port		= 23;
 
 	optional uint32 connection_count	= 50;
 	optional uint32 conference_count	= 51;
@@ -56,12 +58,40 @@ message RosterStatus {
 
 message ConferenceStatus {
 	optional ConferenceType type	= 1;
-	optional uint64 timestamp		= 2;
-	optional uint32 cid				= 3;
-	
-	optional uint32 roster_count	= 20;
-	optional uint32 audio_count		= 21;
-	optional uint32 video_count		= 22;
+	optional uint32 cid				= 2;
 
-	repeated RosterStatus roster_status = 50;
+	optional uint32 roster_count	= 50;
+	optional uint32 audio_count		= 51;
+	optional uint32 video_count		= 52;
+	repeated RosterStatus roster_status = 60;
+}
+
+
+// Service interaction with oauth server.
+
+enum ServiceType {
+	// ServiceRequest
+	SERVICE_SERVER_STATUS				= 1;
+	SERVICE_CONFERENCE_STATUS			= 10;
+	SERVICE_CONFERENCE_SUBSCRIBE		= 11;
+	SERVICE_CONFERENCE_UNSUBSCRIBE		= 12;
+
+	// ServiceResponse 
+	SERVICE_SERVER_STATUS_ACK		= 100;
+	SERVICE_CONFERENCE_STATUS_ACK	= 101;
+}
+
+message ServiceRequest {
+	optional ServiceType type						= 1;
+	optional uint64 timestamp						= 2;
+	optional string sequence						= 3;
+
+	optional ServerStatus server					= 10;
+	optional ConferenceStatus conference			= 20;
+}
+
+message ServiceResponse {
+	optional ServiceType type		= 1;
+	optional uint64 timestamp		= 2;
+	optional string sequence		= 3;
 }

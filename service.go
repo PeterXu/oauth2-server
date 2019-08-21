@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	pie "github.com/PeterXu/oauth2-server/proto"
+	proto "github.com/golang/protobuf/proto"
 )
 
 const (
@@ -20,7 +23,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	maxMessageSize = 8192
 )
 
 var (
@@ -74,6 +77,9 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	// Status
+	capacity *pie.ServerStatus
 }
 
 func (c *Client) readPump() {
@@ -90,16 +96,39 @@ func (c *Client) readPump() {
 	})
 
 	for {
-		_, message, err := c.conn.ReadMessage()
+		mt, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err,
 				websocket.CloseGoingAway,
 				websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("readPump error: %v", err)
 			}
 			break
 		}
-		c.hub.broadcast <- message
+		log.Println("readPump message=", mt, len(message))
+		if mt == websocket.BinaryMessage {
+			req := &pie.ServiceRequest{}
+			if err := proto.Unmarshal(message, req); err != nil {
+				log.Printf("unmarshaling error: %v", err)
+				continue
+			}
+			if req.GetType() == pie.ServiceType_SERVICE_SERVER_STATUS {
+				server := req.GetServer()
+				if server != nil {
+					if server.GetType() == pie.ServerType_SERVER_CAPACITY {
+						log.Printf("readPump, server: %v", server)
+						c.capacity = server
+					} else {
+						log.Println("readPump, server type:", server.GetType())
+					}
+				} else {
+					log.Println("readPump, server is empty")
+				}
+			} else {
+				log.Println("readPump, unkown service type=", req.GetType())
+			}
+		}
+		//c.hub.broadcast <- message
 	}
 }
 
@@ -120,7 +149,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			w, err := c.conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				return
 			}
@@ -146,6 +175,10 @@ func (c *Client) writePump() {
 }
 
 /// Hub for all clients
+
+type ClientStatus struct {
+	status *pie.ServerStatus
+}
 
 type Hub struct {
 	// Registered clients.
