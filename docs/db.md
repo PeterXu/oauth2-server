@@ -40,5 +40,8 @@ CREATE TABLE `users` (
     `created_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+CREATE USER 'oauth'@'%' IDENTIFIED BY 'oauth';
+GRANT SELECT,INSERT,UPDATE ON oauth.users TO 'oauth'@'%';
 ```
 

@@ -23,7 +23,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 8192
+	maxMessageSize = 1024 * 16
 )
 
 var (
@@ -32,6 +32,8 @@ var (
 )
 
 var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
@@ -60,10 +62,11 @@ func wsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	log.Println("wsHandler")
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, maxMessageSize)}
 	client.hub.register <- client
 
-	go client.writePump()
+	//go client.writePump()
 	go client.readPump()
 }
 
@@ -83,6 +86,8 @@ type Client struct {
 }
 
 func (c *Client) readPump() {
+	const TAG string = "readPump"
+
 	defer func() {
 		c.hub.unregister <- c
 		c.conn.Close()
@@ -96,19 +101,22 @@ func (c *Client) readPump() {
 	})
 
 	for {
+		log.Println(TAG, "reading")
 		mt, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err,
 				websocket.CloseGoingAway,
 				websocket.CloseAbnormalClosure) {
-				log.Printf("readPump error: %v", err)
+				log.Println(TAG, "error: ", err)
+			} else {
+				log.Println(TAG, "error: ", err)
 			}
 			break
 		}
-		log.Println("readPump message=", mt, len(message))
+		//log.Println(TAG, "message=", mt, len(message), string(message))
 		if mt == websocket.BinaryMessage {
 			req := &pie.ServiceRequest{}
-			if err := proto.Unmarshal(message, req); err != nil {
+			if err := proto.Unmarshal(message[:], req); err != nil {
 				log.Printf("unmarshaling error: %v", err)
 				continue
 			}
@@ -116,16 +124,16 @@ func (c *Client) readPump() {
 				server := req.GetServer()
 				if server != nil {
 					if server.GetType() == pie.ServerType_SERVER_CAPACITY {
-						log.Printf("readPump, server: %v", server)
+						log.Println(TAG, "server:", server)
 						c.capacity = server
 					} else {
-						log.Println("readPump, server type:", server.GetType())
+						log.Println(TAG, "server type:", server.GetType())
 					}
 				} else {
-					log.Println("readPump, server is empty")
+					log.Println(TAG, "server is empty")
 				}
 			} else {
-				log.Println("readPump, unkown service type=", req.GetType())
+				log.Println(TAG, "unkown service type=", req.GetType())
 			}
 		}
 		//c.hub.broadcast <- message

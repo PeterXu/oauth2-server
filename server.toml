@@ -36,4 +36,4 @@ connection = "oauth:oauth@/oauth"
 [service]
 enable = true
 host = ""
-port = 9090
+port = 6553

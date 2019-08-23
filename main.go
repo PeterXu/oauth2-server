@@ -202,7 +202,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		us, err := gg.Sessions.SessionStart(w, r)
 		if err != nil {
-			log.Printf("SigninHandler, err=", err)
+			log.Printf("SigninHandler, err=%v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
