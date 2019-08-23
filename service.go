@@ -82,7 +82,7 @@ type Client struct {
 	send chan []byte
 
 	// Status
-	capacity *pie.ServerStatus
+	status *pie.ServerStatus
 }
 
 func (c *Client) readPump() {
@@ -125,7 +125,7 @@ func (c *Client) readPump() {
 				if server != nil {
 					if server.GetType() == pie.ServerType_SERVER_CAPACITY {
 						log.Println(TAG, "server:", server)
-						c.capacity = server
+						c.status = server
 					} else {
 						log.Println(TAG, "server type:", server.GetType())
 					}
@@ -188,6 +188,18 @@ type ClientStatus struct {
 	status *pie.ServerStatus
 }
 
+type ClientRequest struct {
+	reply chan *ClientInfo
+}
+
+type ClientInfo struct {
+	ip          string
+	domain      string
+	tcp_port    uint32
+	udp_port    uint32
+	connections uint32
+}
+
 type Hub struct {
 	// Registered clients.
 	clients map[*Client]bool
@@ -200,6 +212,9 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	// Select one available client
+	choose chan *ClientRequest
 }
 
 func newHub() *Hub {
@@ -208,7 +223,11 @@ func newHub() *Hub {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
+		choose:     make(chan *ClientRequest),
 	}
+}
+
+func (h *Hub) getServer() {
 }
 
 func (h *Hub) run() {
@@ -230,6 +249,64 @@ func (h *Hub) run() {
 					delete(h.clients, client)
 				}
 			}
+		case req := <-h.choose:
+			req.reply <- h.getClient()
 		}
 	}
+}
+
+func (h *Hub) getClient() *ClientInfo {
+	selected := make(map[int][]*ClientInfo)
+
+	// check connection
+	checkConnection := func(status *pie.ServerStatus, idx int, threshold uint32) bool {
+		if *status.ConnectionCount < threshold {
+			info := &ClientInfo{
+				*status.Ip,
+				*status.Domain,
+				*status.TcpPort,
+				*status.UdpPort,
+				*status.ConnectionCount,
+			}
+
+			var ls []*ClientInfo
+			if old, ok := selected[idx]; ok {
+				ls = append(old, info)
+			} else {
+				ls = append(ls, info)
+			}
+			selected[idx] = ls
+			return true
+		}
+		return false
+	}
+
+	thresholds := []uint32{20, 50, 100, 150, 200, 250, 300, 1000}
+	for client := range h.clients {
+		if client.status != nil {
+			for idx := range thresholds {
+				if checkConnection(client.status, idx, thresholds[idx]) {
+					break
+				}
+			}
+		}
+	}
+
+	for idx := range thresholds {
+		if ls, ok := selected[idx]; ok {
+			var pos int = -1
+			var limit uint32 = 1024
+			for k := range ls {
+				if ls[k].connections < limit {
+					limit = ls[k].connections
+					pos = k
+				}
+			}
+			if pos >= 0 {
+				return ls[pos]
+			}
+		}
+	}
+
+	return nil
 }
